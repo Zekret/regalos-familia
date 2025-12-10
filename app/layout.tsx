@@ -13,9 +13,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
-      <body className="min-h-screen bg-slate-50 text-slate-900">
-        <main className="min-h-screen flex items-center justify-center p-4">
+    <html lang="es" className="h-full">
+      <body className="h-full bg-slate-50 text-slate-900">
+        {/* El main ya NO centra nada. Solo da el espacio a los children */}
+        <main className="h-full w-full">
           {children}
         </main>
       </body>

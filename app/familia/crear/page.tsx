@@ -1,7 +1,9 @@
+// app/familia/crear/page.tsx
 "use client";
 
 import { FormEvent, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { X, Eye, EyeOff } from "lucide-react";
 
 type CreateFamilyResponse = {
     family: {
@@ -21,10 +23,15 @@ type CreateFamilyResponse = {
 };
 
 export default function CrearFamiliaPage() {
+    const router = useRouter();
+
     const [familyName, setFamilyName] = useState("");
     const [memberName, setMemberName] = useState("");
     const [pin, setPin] = useState("");
     const [pinConfirm, setPinConfirm] = useState("");
+
+    const [showPin, setShowPin] = useState(false);
+    const [showConfirmPin, setShowConfirmPin] = useState(false);
 
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,11 +39,15 @@ export default function CrearFamiliaPage() {
         null
     );
 
+    const handleClose = () => {
+        // puedes cambiar a router.push("/familia/ingresar") si prefieres
+        router.push("/");
+    };
+
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError(null);
 
-        // Validaciones básicas
         if (!familyName.trim() || !memberName.trim()) {
             setError("Por favor completa el nombre de la familia y tu nombre.");
             return;
@@ -81,144 +92,199 @@ export default function CrearFamiliaPage() {
         }
     };
 
-    // Si ya se creó la familia, mostramos pantalla de éxito
-    if (createdData) {
-        const familyLink = `${typeof window !== "undefined" ? window.location.origin : ""}/f/${createdData.family.code}`;
+    const familyLink =
+        createdData && typeof window !== "undefined"
+            ? `${window.location.origin}/f/${createdData.family.code}`
+            : "";
 
-        return (
-            <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-6 space-y-6">
-                <header className="space-y-2">
-                    <h1 className="text-xl font-bold text-center">
-                        ✅ Familia creada
-                    </h1>
-                    <p className="text-sm text-center text-slate-600">
-                        Se creó el espacio para <span className="font-semibold">{createdData.family.name}</span> y tu lista de deseos.
-                    </p>
-                </header>
+    const goToJoinGroup = () => {
+        router.push("/familia/ingresar");
+    };
 
-                <div className="space-y-3">
-                    <div className="bg-slate-50 rounded-xl p-3 text-sm">
-                        <p className="font-semibold mb-1">Comparte este enlace con tu familia:</p>
-                        <p className="break-all text-slate-800 text-xs bg-white rounded-lg p-2 border border-slate-200">
-                            {familyLink}
+    return (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-800 rounded-2xl w-full max-w-md relative shadow-2xl">
+                {/* Botón cerrar */}
+                <button
+                    onClick={handleClose}
+                    className="absolute top-4 right-4 w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center transition-colors"
+                >
+                    <X className="w-5 h-5 text-gray-300" />
+                </button>
+
+                <div className="p-6 sm:p-8">
+                    {createdData ? (
+                        // --- Vista de éxito ---
+                        <>
+                            <div className="mb-6">
+                                <h2 className="text-white text-2xl sm:text-3xl mb-2">
+                                    ✅ Familia creada
+                                </h2>
+                                <p className="text-gray-300 text-sm">
+                                    Se creó el espacio para{" "}
+                                    <span className="font-semibold">
+                                        {createdData.family.name}
+                                    </span>{" "}
+                                    y tu lista de deseos.
+                                </p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="bg-slate-900 rounded-xl p-3 text-sm">
+                                    <p className="font-semibold mb-1 text-gray-100">
+                                        Comparte este enlace con tu familia:
+                                    </p>
+                                    <p className="break-all text-gray-100 text-xs bg-slate-950 rounded-lg p-2 border border-slate-700">
+                                        {familyLink}
+                                    </p>
+                                </div>
+
+                                <p className="text-gray-300 text-xs sm:text-sm">
+                                    Cuando tus familiares usen este enlace, podrán crear su propio
+                                    perfil con un PIN y su lista de deseos.
+                                </p>
+
+                                <button
+                                    onClick={handleClose}
+                                    className="w-full bg-white text-slate-900 rounded-xl py-3.5 hover:bg-gray-100 transition-colors mt-2"
+                                >
+                                    Cerrar
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        // --- Formulario ---
+                        <>
+                            <div className="mb-6">
+                                <h2 className="text-white text-2xl sm:text-3xl mb-2">
+                                    Crear Grupo Familiar
+                                </h2>
+                                <p className="text-gray-400 text-sm">
+                                    Crea el espacio de tu familia y tu propia lista de deseos.
+                                </p>
+                            </div>
+
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                {/* Nombre de la familia */}
+                                <div>
+                                    <input
+                                        type="text"
+                                        placeholder="Nombre de la familia"
+                                        value={familyName}
+                                        onChange={(e) => setFamilyName(e.target.value)}
+                                        className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                                        required
+                                    />
+                                </div>
+
+                                {/* Tu nombre */}
+                                <div>
+                                    <input
+                                        type="text"
+                                        placeholder="Tu nombre"
+                                        value={memberName}
+                                        onChange={(e) => setMemberName(e.target.value)}
+                                        className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                                        required
+                                    />
+                                    <p className="text-gray-400 text-xs mt-2 px-1">
+                                        Así te verán los demás en la lista (puede ser tu nombre o
+                                        apodo).
+                                    </p>
+                                </div>
+
+                                {/* PIN */}
+                                <div>
+                                    <div className="relative">
+                                        <input
+                                            type={showPin ? "text" : "password"}
+                                            placeholder="PIN de 4 dígitos"
+                                            value={pin}
+                                            onChange={(e) => {
+                                                const value = e.target.value.replace(/\D/g, "").slice(0, 4);
+                                                setPin(value);
+                                            }}
+                                            className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                                            maxLength={4}
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPin(!showPin)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                                        >
+                                            {showPin ? (
+                                                <EyeOff className="w-5 h-5" />
+                                            ) : (
+                                                <Eye className="w-5 h-5" />
+                                            )}
+                                        </button>
+                                    </div>
+                                    <p className="text-gray-400 text-xs mt-2 px-1">
+                                        Este PIN será tu llave para entrar y editar tu lista.
+                                    </p>
+                                </div>
+
+                                {/* Confirmar PIN */}
+                                <div>
+                                    <div className="relative">
+                                        <input
+                                            type={showConfirmPin ? "text" : "password"}
+                                            placeholder="Confirmar PIN"
+                                            value={pinConfirm}
+                                            onChange={(e) => {
+                                                const value = e.target.value.replace(/\D/g, "").slice(0, 4);
+                                                setPinConfirm(value);
+                                            }}
+                                            className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                                            maxLength={4}
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPin(!showConfirmPin)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                                        >
+                                            {showConfirmPin ? (
+                                                <EyeOff className="w-5 h-5" />
+                                            ) : (
+                                                <Eye className="w-5 h-5" />
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {error && (
+                                    <p className="text-sm text-red-400 bg-red-950/40 border border-red-700 rounded-lg px-3 py-2">
+                                        {error}
+                                    </p>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="w-full bg-white text-slate-900 rounded-xl py-3.5 hover:bg-gray-100 transition-colors mt-4 disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                    {isSubmitting ? "Creando familia..." : "Crear Grupo Familiar"}
+                                </button>
+                            </form>
+                        </>
+                    )}
+                    {/* Switch a cre */}
+                    <div className="mt-6 text-center">
+                        <p className="text-gray-400 text-sm">
+                            ¿Ya estas en un grupo familiar?{" "}
+                            <button
+                                type="button"
+                                onClick={goToJoinGroup}
+                                className="text-white hover:text-emerald-400 transition-colors underline"
+                            >
+                                Ingresar a grupo familiar
+                            </button>
                         </p>
                     </div>
-
-                    <p className="text-sm text-slate-600">
-                        Cuando tus familiares usen este enlace, podrán crear su propio perfil con un PIN y su lista de deseos.
-                    </p>
                 </div>
-
-                <Link
-                    href="/"
-                    className="block text-center text-sm text-blue-600 hover:underline"
-                >
-                    ← Volver al inicio
-                </Link>
             </div>
-        );
-    }
-
-    // Vista del formulario
-    return (
-        <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-6 space-y-6">
-            <header className="space-y-2">
-                <h1 className="text-xl font-bold text-center">Crear familia</h1>
-                <p className="text-sm text-center text-slate-600">
-                    Crea el espacio de tu familia y tu propia lista de deseos.
-                </p>
-            </header>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">
-                        Nombre de la familia
-                    </label>
-                    <input
-                        type="text"
-                        value={familyName}
-                        onChange={(e) => setFamilyName(e.target.value)}
-                        className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Ej: Familia Pérez"
-                    />
-                </div>
-
-                <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">
-                        Tu nombre
-                    </label>
-                    <input
-                        type="text"
-                        value={memberName}
-                        onChange={(e) => setMemberName(e.target.value)}
-                        className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Ej: Rosa, Juan, Sofi..."
-                    />
-                    <p className="text-xs text-slate-500">
-                        Así te verán los demás en la lista (puede ser tu nombre o apodo).
-                    </p>
-                </div>
-
-                <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">
-                        PIN de 4 dígitos
-                    </label>
-                    <input
-                        type="password"
-                        inputMode="numeric"
-                        maxLength={4}
-                        value={pin}
-                        onChange={(e) => {
-                            const value = e.target.value.replace(/\D/g, "");
-                            if (value.length <= 4) setPin(value);
-                        }}
-                        className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm tracking-[0.5em] text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="••••"
-                    />
-                    <p className="text-xs text-slate-500">
-                        Este PIN será tu llave para entrar y editar tu lista.
-                    </p>
-                </div>
-
-                <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700">
-                        Confirmar PIN
-                    </label>
-                    <input
-                        type="password"
-                        inputMode="numeric"
-                        maxLength={4}
-                        value={pinConfirm}
-                        onChange={(e) => {
-                            const value = e.target.value.replace(/\D/g, "");
-                            if (value.length <= 4) setPinConfirm(value);
-                        }}
-                        className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm tracking-[0.5em] text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="••••"
-                    />
-                </div>
-
-                {error && (
-                    <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                        {error}
-                    </p>
-                )}
-
-                <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold text-base hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                    {isSubmitting ? "Creando familia..." : "Crear familia"}
-                </button>
-            </form>
-
-            <Link
-                href="/"
-                className="block text-center text-sm text-blue-600 hover:underline"
-            >
-                ← Volver al inicio
-            </Link>
         </div>
     );
 }

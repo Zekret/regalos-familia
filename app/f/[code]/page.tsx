@@ -1,50 +1,188 @@
+// app/f/[code]/page.tsx
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { X, User } from "lucide-react";
+
+type FamilyMember = {
+    id: string;
+    name: string;
+    wishListCount?: number;
+    avatar?: string;
+};
+
+type Family = {
+    id: string;
+    name: string;
+    code: string;
+};
+
+function buildFamilyTitle(name?: string) {
+    if (!name) return "Espacio familiar";
+
+    const trimmed = name.trim();
+    const lower = trimmed.toLowerCase();
+
+    // 1) Si ya empieza con familia
+    if (lower.startsWith("familia ")) {
+        return trimmed;
+    }
+
+    const wordCount = trimmed.split(" ").length;
+
+    // 2) Si tiene más de 2 palabras → probablemente NO es apellido
+    if (wordCount > 2) {
+        return trimmed;
+    }
+
+    // 3) Si tiene 2 palabras, pero incluye números (ej. “Grupo 2025”) → mostrar igual
+    if (/\d/.test(trimmed)) {
+        return trimmed;
+    }
+
+    // 4) Caso normal: agregar “Familia”
+    return `Familia ${trimmed}`;
+}
+
 
 export default function FamiliaPage() {
     const pathname = usePathname();
-    const segments = pathname.split("/");
-    const code = segments[2] || "(sin código)";
+    const router = useRouter();
+    const segments = pathname.split("/").filter(Boolean);
+    const familyCode = segments[1];
+
+    const [family, setFamily] = useState<Family | null>(null);
+    const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+    const [loadingMembers, setLoadingMembers] = useState(true);
+
+    // Cargar datos de la familia (nombre, etc.)
+    useEffect(() => {
+        const loadFamily = async () => {
+            try {
+                const res = await fetch(`/api/families/${familyCode}`);
+                if (!res.ok) throw new Error("Error al obtener la familia");
+                const data = await res.json();
+                setFamily(data);
+            } catch (err) {
+                console.error("Error loading family:", err);
+            }
+        };
+
+        loadFamily();
+    }, [familyCode]);
+
+    // Cargar miembros de la familia
+    useEffect(() => {
+        const loadMembers = async () => {
+            try {
+                const res = await fetch(`/api/families/${familyCode}/members`);
+                const data = await res.json();
+                setFamilyMembers(data.members || []);
+            } catch (e) {
+                console.error("Error loading members:", e);
+            } finally {
+                setLoadingMembers(false);
+            }
+        };
+        loadMembers();
+    }, [familyCode]);
+
+    const membersCount = familyMembers.length;
+    const membersLabel =
+        membersCount === 0
+            ? "Sin miembros todavía"
+            : membersCount === 1
+                ? "1 miembro"
+                : `${membersCount} miembros`;
 
     return (
-        <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-6 space-y-6">
-            <header className="space-y-2">
-                <h1 className="text-xl font-bold text-center">Espacio familiar</h1>
-
-                <p className="text-sm text-center text-slate-600">
-                    Código familiar:{" "}
-                    <span className="font-mono font-semibold">{code}</span>
-                </p>
-
-                <p className="text-sm text-center text-slate-600 mt-2">
-                    Aquí podrás crear tu perfil con PIN o entrar a tu lista de deseos.
-                </p>
-            </header>
-
-            <div className="space-y-3">
-                <Link
-                    href={`/f/${code}/nuevo-miembro`}
-                    className="block w-full text-center py-3 rounded-xl bg-blue-600 text-white font-semibold text-base hover:bg-blue-700 transition"
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-800 rounded-2xl w-full max-w-md relative shadow-2xl max-h-[90vh] overflow-y-auto">
+                {/* Close */}
+                <button
+                    onClick={() => router.push("/")}
+                    className="absolute top-4 right-4 w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center transition-colors z-10"
                 >
-                    Soy nuevo aquí
-                </Link>
+                    <X className="w-5 h-5 text-gray-300" />
+                </button>
 
-                <Link
-                    href={`/f/${code}/login`}
-                    className="block w-full text-center py-3 rounded-xl border border-slate-300 font-semibold text-base hover:bg-slate-100 transition"
-                >
-                    Ya tengo una lista aquí
-                </Link>
+                <div className="p-6 sm:p-8">
+                    {/* Header */}
+                    <div className="mb-6">
+                        <h2 className="text-white text-2xl sm:text-3xl mb-2">
+                            {family ? buildFamilyTitle(family.name) : "Cargando familia..."}
+                        </h2>
+
+                        <p className="text-emerald-400 mb-1">
+                            Código familiar: {familyCode}
+                        </p>
+
+                        <p className="text-gray-400 text-sm mb-1">{membersLabel}</p>
+
+                    </div>
+
+                    {/* Miembros */}
+                    <div className="mb-6">
+                        <h3 className="text-white mb-3">Miembros de la familia</h3>
+
+                        {loadingMembers ? (
+                            <p className="text-sm text-gray-300">Cargando...</p>
+                        ) : familyMembers.length === 0 ? (
+                            <p className="text-sm text-gray-400">
+                                Todavía no hay usuarios
+                            </p>
+                        ) : (
+                            <div className="max-h-64 overflow-y-auto pr-1 space-y-2">
+                                {familyMembers.map((member) => (
+                                    <div
+                                        key={member.id}
+                                        className="bg-slate-900 rounded-xl p-3 flex items-center gap-3"
+                                    >
+                                        {/* Avatar */}
+                                        <div className="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
+                                            {member.avatar ? (
+                                                <img
+                                                    src={member.avatar}
+                                                    alt={member.name}
+                                                    className="w-full h-full rounded-full object-cover"
+                                                />
+                                            ) : (
+                                                <User className="w-6 h-6 text-gray-400" />
+                                            )}
+                                        </div>
+
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-white truncate">{member.name}</p>
+                                            <p className="text-gray-400 text-sm">
+                                                {member.wishListCount ?? 0} deseos
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="space-y-3">
+                        <button
+                            onClick={() => router.push(`/f/${familyCode}/nuevo-miembro`)}
+                            className="w-full bg-white text-slate-900 rounded-xl py-3.5 hover:bg-gray-100 transition-colors"
+                        >
+                            Crear usuario
+                        </button>
+
+                        <button
+                            onClick={() => router.push(`/f/${familyCode}/login`)}
+                            className="w-full bg-emerald-500 text-white rounded-xl py-3.5 hover:bg-emerald-600 transition-colors"
+                        >
+                            Ya tengo un usuario
+                        </button>
+                    </div>
+                </div>
             </div>
-
-            <Link
-                href="/"
-                className="block text-center text-sm text-blue-600 hover:underline"
-            >
-                ← Volver al inicio
-            </Link>
         </div>
     );
 }

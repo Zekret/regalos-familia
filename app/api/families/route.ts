@@ -22,6 +22,56 @@ function generateFamilyCode() {
   return code;
 }
 
+// GET /api/families?page=1&pageSize=20
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+
+    const pageParam = searchParams.get("page");
+    const pageSizeParam = searchParams.get("pageSize");
+
+    const page = Math.max(1, Number(pageParam) || 1);
+    const pageSize = Math.min(
+      50, // límite “sano”
+      Math.max(1, Number(pageSizeParam) || 20)
+    );
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error, count } = await supabaseServer
+      .from("families")
+      .select("id, name, code, created_at", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error(error);
+      return NextResponse.json(
+        { message: "Error al obtener las familias." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        items: data ?? [],
+        page,
+        pageSize,
+        total: count ?? 0,
+        hasMore: count ? to + 1 < count : false,
+      },
+      { status: 200 }
+    );
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json(
+      { message: "Error interno al obtener las familias." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as Body;
@@ -102,7 +152,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 👇 Respuesta compatible con tu frontend actual
     return NextResponse.json(
       {
         family: {
