@@ -5,10 +5,8 @@ import { Users, Heart, LogOut } from "lucide-react";
 interface SidebarProps {
     activeSection: "family" | "wishes";
     onSectionChange: (section: "family" | "wishes") => void;
-    // Opcionales: para mostrar info del usuario/sesión
     memberName?: string;
     familyCode?: string;
-    // Opcional: handler real de logout
     onLogout?: () => void;
 }
 
@@ -20,7 +18,7 @@ export function Sidebar({
     onLogout,
 }: SidebarProps) {
     return (
-        <aside className="w-64 bg-black border-r border-gray-800 flex flex-col">
+        <aside className="hidden md:flex w-64 bg-black border-r border-gray-800 flex-col">
             {/* Header */}
             <div className="p-6 border-b border-gray-800">
                 <h1 className="text-white text-lg font-semibold">

@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     // 1) Sacar code desde la URL
     // ==========================
     const { pathname } = req.nextUrl;
-    // /api/families/OXE508/members/login
+    // /api/families/OXE508/members/perfil
     // split → ["", "api", "families", "OXE508", "members", "login"]
     const parts = pathname.split("/").filter(Boolean);
     // ["api", "families", "OXE508", "members", "login"]

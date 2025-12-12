@@ -45,7 +45,6 @@ function buildFamilyTitle(name?: string) {
     return `Familia ${trimmed}`;
 }
 
-
 export default function FamiliaPage() {
     const pathname = usePathname();
     const router = useRouter();
@@ -56,23 +55,42 @@ export default function FamiliaPage() {
     const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(true);
 
+    const [notFound, setNotFound] = useState(false);
+    const [loadingFamily, setLoadingFamily] = useState(true);
+
     // Cargar datos de la familia (nombre, etc.)
     useEffect(() => {
         const loadFamily = async () => {
             try {
                 const res = await fetch(`/api/families/${familyCode}`);
-                if (!res.ok) throw new Error("Error al obtener la familia");
+
+                if (res.status === 404) {
+                    // familia no existe
+                    setNotFound(true);
+                    setFamily(null);
+                    setLoadingFamily(false);
+                    return;
+                }
+
+                if (!res.ok) {
+                    throw new Error("Error al obtener la familia");
+                }
+
                 const data = await res.json();
                 setFamily(data);
             } catch (err) {
                 console.error("Error loading family:", err);
+                // si quieres tratar cualquier error como “no encontrada”:
+                setNotFound(true);
+            } finally {
+                setLoadingFamily(false);
             }
         };
 
         loadFamily();
     }, [familyCode]);
 
-    // Cargar miembros de la familia
+    // Cargar miembros de la familia (solo si la familia existe)
     useEffect(() => {
         const loadMembers = async () => {
             try {
@@ -85,8 +103,11 @@ export default function FamiliaPage() {
                 setLoadingMembers(false);
             }
         };
-        loadMembers();
-    }, [familyCode]);
+
+        if (!notFound) {
+            loadMembers();
+        }
+    }, [familyCode, notFound]);
 
     const membersCount = familyMembers.length;
     const membersLabel =
@@ -96,6 +117,39 @@ export default function FamiliaPage() {
                 ? "1 miembro"
                 : `${membersCount} miembros`;
 
+    // 🧱 Vista cuando la familia NO existe (404 "friendly")
+    if (notFound && !loadingFamily) {
+        return (
+            <div className="min-h-screen bg-black flex flex-col items-center justify-center text-center px-4">
+                <h1 className="text-3xl font-bold text-white mb-3">
+                    Familia no encontrada
+                </h1>
+                <p className="text-sm text-gray-400 mb-6 max-w-md">
+                    El código{" "}
+                    <span className="font-mono text-emerald-400">{familyCode}</span>{" "}
+                    no corresponde a ningún espacio familiar creado o ya no está
+                    disponible.
+                </p>
+                <button
+                    onClick={() => router.push("/familia/ingresar")}
+                    className="px-4 py-2 rounded-xl bg-emerald-500 text-black text-sm font-semibold hover:bg-emerald-400 transition"
+                >
+                    Volver a ingresar código
+                </button>
+            </div>
+        );
+    }
+
+    // Estado cargando familia
+    if (loadingFamily) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <p className="text-sm text-gray-400">Cargando espacio familiar...</p>
+            </div>
+        );
+    }
+
+    // Modal normal cuando la familia existe
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
             <div className="bg-slate-800 rounded-2xl w-full max-w-md relative shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -111,7 +165,7 @@ export default function FamiliaPage() {
                     {/* Header */}
                     <div className="mb-6">
                         <h2 className="text-white text-2xl sm:text-3xl mb-2">
-                            {family ? buildFamilyTitle(family.name) : "Cargando familia..."}
+                            {family ? buildFamilyTitle(family.name) : "Espacio familiar"}
                         </h2>
 
                         <p className="text-emerald-400 mb-1">
@@ -119,7 +173,6 @@ export default function FamiliaPage() {
                         </p>
 
                         <p className="text-gray-400 text-sm mb-1">{membersLabel}</p>
-
                     </div>
 
                     {/* Miembros */}
@@ -129,9 +182,7 @@ export default function FamiliaPage() {
                         {loadingMembers ? (
                             <p className="text-sm text-gray-300">Cargando...</p>
                         ) : familyMembers.length === 0 ? (
-                            <p className="text-sm text-gray-400">
-                                Todavía no hay usuarios
-                            </p>
+                            <p className="text-sm text-gray-400">Todavía no hay usuarios</p>
                         ) : (
                             <div className="max-h-64 overflow-y-auto pr-1 space-y-2">
                                 {familyMembers.map((member) => (
@@ -175,7 +226,7 @@ export default function FamiliaPage() {
                         </button>
 
                         <button
-                            onClick={() => router.push(`/f/${familyCode}/login`)}
+                            onClick={() => router.push(`/f/${familyCode}/perfil`)}
                             className="w-full bg-emerald-500 text-white rounded-xl py-3.5 hover:bg-emerald-600 transition-colors"
                         >
                             Ya tengo un usuario

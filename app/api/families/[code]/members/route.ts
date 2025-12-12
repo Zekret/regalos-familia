@@ -6,7 +6,7 @@ import { supabaseServer } from "@/src/lib/supabaseServer";
 function getFamilyCodeFromUrl(req: NextRequest): string | null {
   const { pathname } = req.nextUrl;
   // /api/families/DAY198/members
-  // /api/families/DAY198/members/login (aquí igual nos sirve index 2)
+  // /api/families/DAY198/members/perfil (aquí igual nos sirve index 2)
   const parts = pathname.split("/").filter(Boolean);
   // ["api", "families", "DAY198", "members", ...]
   const rawCode = parts[2];

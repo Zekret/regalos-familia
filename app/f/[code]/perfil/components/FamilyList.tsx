@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, Plus, Heart } from "lucide-react";
+import { Users, Heart } from "lucide-react";
 
 interface FamilyMember {
     id: string;
@@ -47,7 +47,7 @@ export function FamilyList({ familyCode, currentMemberId }: FamilyListProps) {
                     id: m.id,
                     name: m.name,
                     created_at: m.created_at,
-                    // De momento 0, luego lo puedes alimentar con un agregate en Supabase
+                    // De momento 0, luego lo puedes alimentar con un aggregate en Supabase
                     wishListsCount: m.wishListsCount ?? 0,
                 }));
 
@@ -66,11 +66,13 @@ export function FamilyList({ familyCode, currentMemberId }: FamilyListProps) {
         return () => controller.abort();
     }, [familyCode]);
 
+    const totalMembers = familyMembers.length;
+
     return (
-        <div className="p-8">
+        <div className="p-4 pb-24 md:p-8 md:pb-8">
             <div className="max-w-5xl mx-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center">
                             <Users className="w-6 h-6 text-gray-400" />
@@ -88,25 +90,13 @@ export function FamilyList({ familyCode, currentMemberId }: FamilyListProps) {
                                 </p>
                             ) : (
                                 <p className="text-gray-400 mt-1 text-sm">
-                                    {familyMembers.length} miembro
-                                    {familyMembers.length === 1 ? "" : "s"} registrado
-                                    {familyMembers.length === 1 ? "" : "s"}
+                                    {totalMembers} miembro
+                                    {totalMembers === 1 ? "" : "s"} registrado
+                                    {totalMembers === 1 ? "" : "s"}
                                 </p>
                             )}
                         </div>
                     </div>
-
-                    <button
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors text-sm"
-                        type="button"
-                        onClick={() => {
-                            // Aquí luego puedes abrir tu modal/form de "Agregar familiar"
-                            console.log("Abrir modal para agregar familiar");
-                        }}
-                    >
-                        <Plus className="w-5 h-5" />
-                        Agregar familiar
-                    </button>
                 </div>
 
                 {/* Mensaje de error */}
@@ -125,7 +115,7 @@ export function FamilyList({ familyCode, currentMemberId }: FamilyListProps) {
 
                 {/* Family Members Grid */}
                 {!loading && !error && familyMembers.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {familyMembers.map((member) => {
                             const wishCount = member.wishListsCount ?? 0;
 

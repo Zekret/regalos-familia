@@ -39,8 +39,13 @@ export default function CrearFamiliaPage() {
         null
     );
 
+    console.log(createdData)
+
+    const handleOpen = () => {
+        router.push(`/f/${createdData?.family.code}`);
+    };
+
     const handleClose = () => {
-        // puedes cambiar a router.push("/familia/ingresar") si prefieres
         router.push("/");
     };
 
@@ -118,7 +123,7 @@ export default function CrearFamiliaPage() {
                         <>
                             <div className="mb-6">
                                 <h2 className="text-white text-2xl sm:text-3xl mb-2">
-                                    ✅ Familia creada
+                                    Familia creada
                                 </h2>
                                 <p className="text-gray-300 text-sm">
                                     Se creó el espacio para{" "}
@@ -144,6 +149,12 @@ export default function CrearFamiliaPage() {
                                     perfil con un PIN y su lista de deseos.
                                 </p>
 
+                                <button
+                                    onClick={handleOpen}
+                                    className="w-full bg-white text-slate-900 rounded-xl py-3.5 hover:bg-gray-100 transition-colors mt-2"
+                                >
+                                    Ingresar a la familia
+                                </button>
                                 <button
                                     onClick={handleClose}
                                     className="w-full bg-white text-slate-900 rounded-xl py-3.5 hover:bg-gray-100 transition-colors mt-2"

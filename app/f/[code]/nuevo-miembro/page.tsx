@@ -128,7 +128,7 @@ export default function NuevoMiembroPage() {
 
                             <div className="space-y-3">
                                 <Link
-                                    href={`/f/${code}/login`}
+                                    href={`/f/${code}/perfil`}
                                     className="block w-full text-center py-3.5 rounded-xl bg-white text-slate-900 font-semibold text-sm hover:bg-gray-100 transition-colors"
                                 >
                                     Ir a “Ya tengo una lista aquí”
