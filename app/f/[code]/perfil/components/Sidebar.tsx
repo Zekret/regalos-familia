@@ -12,6 +12,18 @@ interface SidebarProps {
     onLogout?: () => void;
 }
 
+function safeHref(href?: string) {
+    const v = (href ?? "").trim();
+    return v.length > 0 ? v : "#";
+}
+
+function preventIfInvalid(href?: string) {
+    const v = (href ?? "").trim();
+    return (e: React.MouseEvent) => {
+        if (!v) e.preventDefault();
+    };
+}
+
 export function Sidebar({
     activeSection,
     familyHref,
@@ -20,6 +32,9 @@ export function Sidebar({
     familyCode,
     onLogout,
 }: SidebarProps) {
+    const family = safeHref(familyHref);
+    const wishes = safeHref(wishesHref);
+
     return (
         <aside className="hidden md:flex w-64 bg-black border-r border-gray-800 flex-col">
             <div className="p-6 border-b border-gray-800">
@@ -35,7 +50,9 @@ export function Sidebar({
                 <ul className="space-y-2">
                     <li>
                         <Link
-                            href={familyHref}
+                            href={family}
+                            onClick={preventIfInvalid(familyHref)}
+                            aria-disabled={!familyHref?.trim()}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === "family"
                                     ? "bg-gray-800 text-white"
                                     : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
@@ -48,7 +65,9 @@ export function Sidebar({
 
                     <li>
                         <Link
-                            href={wishesHref}
+                            href={wishes}
+                            onClick={preventIfInvalid(wishesHref)}
+                            aria-disabled={!wishesHref?.trim()}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === "wishes"
                                     ? "bg-gray-800 text-white"
                                     : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
