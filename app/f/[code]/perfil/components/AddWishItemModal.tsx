@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X, Link2, ArrowRight, ArrowLeft, Wand2 } from "lucide-react";
 
 export type AddWishItemPayload = {
@@ -137,6 +137,15 @@ export function AddWishItemModal(props: {
             setSaving(false);
         }
     }
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        document.body.classList.add("modal-open");
+        return () => {
+            document.body.classList.remove("modal-open");
+        };
+    }, [isOpen]);
 
     if (!isOpen) return null;
 

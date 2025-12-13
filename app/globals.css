@@ -36,3 +36,13 @@ body {
   background: #3f4759; /* slate-600 */
   border-radius: 4px;
 }
+
+/* Cuando hay un modal abierto */
+body.modal-open {
+  overflow: hidden; /* evita scroll detrás */
+}
+
+/* Oculta el navbar mobile cuando hay modal abierto */
+body.modal-open .mobile-nav {
+  display: none !important;
+}
