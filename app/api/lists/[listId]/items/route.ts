@@ -1,14 +1,42 @@
+// app/api/lists/[listId]/items/route.ts
 import { supabaseServer } from "@/src/lib/supabaseServer";
 import { NextRequest, NextResponse } from "next/server";
 
+type UiItem = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  price: string;
+  url?: string;
+  liked: boolean;
+};
+
 function getListIdFromUrl(req: NextRequest): string | null {
   const { pathname } = req.nextUrl;
-  // /api/lists/6e28eeb3-.../items
-  // split → ["", "api", "lists", "6e28eeb3-...", "items"]
   const parts = pathname.split("/").filter(Boolean);
-  // ["api", "lists", "6e28eeb3-...", "items"]
-  const listId = parts[2];
-  return listId || null;
+  return parts[2] || null; // ["api","lists","{listId}","items"]
+}
+
+function formatCLP(value: unknown): string {
+  const n = Number(value ?? 0);
+  const safe = Number.isFinite(n) ? n : 0;
+
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0,
+  }).format(safe);
+}
+
+function mapDbItemToUi(row: any): UiItem {
+  return {
+    id: row.id,
+    name: row.name ?? "",
+    imageUrl: "", // no existe en tu tabla items
+    price: formatCLP(row.price),
+    url: row.url ?? undefined,
+    liked: true,
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -26,7 +54,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseServer
       .from("items")
-      .select("*")
+      .select("id, name, url, price, created_at")
       .eq("list_id", listId)
       .order("created_at", { ascending: true });
 
@@ -38,10 +66,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { items: data || [] },
-      { status: 200 }
-    );
+    const items: UiItem[] = (data ?? []).map(mapDbItemToUi);
+    return NextResponse.json({ items }, { status: 200 });
   } catch (err) {
     console.error("[ITEMS GET] error inesperado:", err);
     return NextResponse.json(
@@ -58,44 +84,41 @@ export async function POST(req: NextRequest) {
     console.log("[ITEMS POST] pathname =", req.nextUrl.pathname, "listId =", listId);
 
     if (!listId) {
-      return NextResponse.json(
-        { message: "listId inválido." },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "listId inválido." }, { status: 400 });
     }
 
     const body = await req.json().catch(() => null);
-    const { name, notes, url, price } = (body as any) ?? {};
+    const name = (body?.name ?? "").toString().trim();
+    const notes = body?.notes?.toString().trim() || null;
+    const url = body?.url?.toString().trim() || null;
+    const priceRaw = body?.price;
 
-    console.log("[ITEMS POST] body =", body);
-
-    if (!name || !name.trim()) {
+    if (!name) {
       return NextResponse.json(
         { message: "El nombre del regalo es obligatorio." },
         { status: 400 }
       );
     }
 
-    if (price === undefined || price === null || isNaN(Number(price))) {
+    const numericPrice = Number(priceRaw);
+    if (!Number.isFinite(numericPrice)) {
       return NextResponse.json(
         { message: "El precio es obligatorio y debe ser un número." },
         { status: 400 }
       );
     }
 
-    const numericPrice = Number(price);
-
     const { data, error } = await supabaseServer
       .from("items")
       .insert({
         list_id: listId,
-        name: name.trim(),
-        notes: notes?.toString().trim() || null,
-        url: url?.toString().trim() || null,
+        name,
+        notes,
+        url,
         price: numericPrice,
         status: "available",
       })
-      .select("*")
+      .select("id, name, url, price, created_at")
       .single();
 
     if (error || !data) {
@@ -106,10 +129,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { item: data },
-      { status: 201 }
-    );
+    const item: UiItem = mapDbItemToUi(data);
+    return NextResponse.json({ item }, { status: 201 });
   } catch (err) {
     console.error("[ITEMS POST] error inesperado:", err);
     return NextResponse.json(

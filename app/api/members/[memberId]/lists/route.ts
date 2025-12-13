@@ -5,7 +5,6 @@ import { supabaseServer } from "@/src/lib/supabaseServer";
 function getMemberIdFromUrl(req: NextRequest): string | null {
     const { pathname } = req.nextUrl;
     // /api/members/{memberId}/lists
-    // split → ["", "api", "members", "{memberId}", "lists"]
     const parts = pathname.split("/").filter(Boolean);
     // ["api", "members", "{memberId}", "lists"]
     const memberId = parts[2];
@@ -17,16 +16,14 @@ export async function POST(req: NextRequest) {
         const memberId = getMemberIdFromUrl(req);
 
         if (!memberId) {
-            return NextResponse.json(
-                { message: "memberId inválido." },
-                { status: 400 }
-            );
+            return NextResponse.json({ message: "memberId inválido." }, { status: 400 });
         }
 
         const body = await req.json().catch(() => null);
-        const { title } = (body as any) ?? {};
+        const title = body?.title?.toString().trim();
+        const description = body?.description?.toString().trim() || null;
 
-        if (!title || !title.trim()) {
+        if (!title) {
             return NextResponse.json(
                 { message: "El título de la lista es obligatorio." },
                 { status: 400 }
@@ -42,35 +39,27 @@ export async function POST(req: NextRequest) {
 
         if (memError || !member) {
             console.error("[NEW LIST] member error:", memError);
-            return NextResponse.json(
-                { message: "Miembro no encontrado." },
-                { status: 404 }
-            );
+            return NextResponse.json({ message: "Miembro no encontrado." }, { status: 404 });
         }
 
-        // 2) Crear la nueva lista
+        // 2) Crear la nueva lista (ahora con description)
         const { data: list, error: listError } = await supabaseServer
             .from("lists")
             .insert({
                 family_id: member.family_id,
                 member_id: member.id,
-                title: title.trim(),
+                title,
+                description, // ✅ nuevo
             })
-            .select("id, title, created_at")
+            .select("id, title, description, created_at") // ✅ nuevo
             .single();
 
         if (listError || !list) {
             console.error("[NEW LIST] list error:", listError);
-            return NextResponse.json(
-                { message: "No se pudo crear la lista." },
-                { status: 500 }
-            );
+            return NextResponse.json({ message: "No se pudo crear la lista." }, { status: 500 });
         }
 
-        return NextResponse.json(
-            { list },
-            { status: 201 }
-        );
+        return NextResponse.json({ list }, { status: 201 });
     } catch (err) {
         console.error("[NEW LIST] error inesperado:", err);
         return NextResponse.json(
@@ -93,7 +82,7 @@ export async function GET(req: NextRequest) {
 
         const { data, error } = await supabaseServer
             .from("lists")
-            .select("id, title, created_at")
+            .select("id, title, description, created_at") // ✅ nuevo
             .eq("member_id", memberId)
             .order("created_at", { ascending: true });
 
@@ -105,10 +94,7 @@ export async function GET(req: NextRequest) {
             );
         }
 
-        return NextResponse.json(
-            { lists: data ?? [] },
-            { status: 200 }
-        );
+        return NextResponse.json({ lists: data ?? [] }, { status: 200 });
     } catch (err) {
         console.error("[LISTS GET] error inesperado:", err);
         return NextResponse.json(
@@ -117,4 +103,3 @@ export async function GET(req: NextRequest) {
         );
     }
 }
-
