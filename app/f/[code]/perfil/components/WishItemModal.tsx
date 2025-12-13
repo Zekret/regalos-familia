@@ -7,11 +7,16 @@ import { WishItem } from "./WishListDetail";
 interface Props {
     item: WishItem & { notes?: string; priceRaw?: number };
     onClose: () => void;
-    onEdit: (item: WishItem & { notes?: string; priceRaw?: number }) => void;
-    onDelete: (item: WishItem & { notes?: string; priceRaw?: number }) => void;
+
+    // ✅ NUEVO: controla si se pueden mostrar acciones
+    canManage?: boolean;
+
+    // ✅ ahora opcionales
+    onEdit?: (item: WishItem & { notes?: string; priceRaw?: number }) => void;
+    onDelete?: (item: WishItem & { notes?: string; priceRaw?: number }) => void;
 }
 
-export function WishItemModal({ item, onClose, onEdit, onDelete }: Props) {
+export function WishItemModal({ item, onClose, canManage = false, onEdit, onDelete }: Props) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
             <div className="absolute inset-0 bg-black/70" />
@@ -59,30 +64,31 @@ export function WishItemModal({ item, onClose, onEdit, onDelete }: Props) {
                             Ver producto
                         </a>
                     ) : (
-                        <div className="text-center text-sm text-gray-500 mb-5">
-                            Este deseo no tiene enlace asociado.
-                        </div>
+                        <div className="text-center text-sm text-gray-500 mb-5">Este deseo no tiene enlace asociado.</div>
                     )}
 
-                    <div className="flex gap-3">
-                        <button
-                            type="button"
-                            onClick={() => onEdit(item)}
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition"
-                        >
-                            <Edit2 className="w-4 h-4" />
-                            Editar
-                        </button>
+                    {/* ✅ Acciones SOLO si puede gestionar */}
+                    {canManage ? (
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => onEdit?.(item)}
+                                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition"
+                            >
+                                <Edit2 className="w-4 h-4" />
+                                Editar
+                            </button>
 
-                        <button
-                            type="button"
-                            onClick={() => onDelete(item)}
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-900/40 hover:bg-red-900/70 text-red-200 rounded-xl transition"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                            Eliminar
-                        </button>
-                    </div>
+                            <button
+                                type="button"
+                                onClick={() => onDelete?.(item)}
+                                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-900/40 hover:bg-red-900/70 text-red-200 rounded-xl transition"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Eliminar
+                            </button>
+                        </div>
+                    ) : null}
                 </div>
             </div>
         </div>

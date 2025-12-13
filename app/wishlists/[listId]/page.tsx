@@ -1,9 +1,12 @@
-// app/wishlists/[listId]/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+
 import { WishListDetail } from "@/app/f/[code]/perfil/components/WishListDetail";
+import { WishItemModal } from "@/app/f/[code]/perfil/components/WishItemModal";
+import { useWishItemModal } from "@/app/f/[code]/perfil/hooks/useWishItemModal";
+import { useWishListData } from "@/app/f/[code]/perfil/hooks/useWishListData";
 
 type Session = {
     familyCode: string;
@@ -11,122 +14,31 @@ type Session = {
     token: string;
 };
 
-type WishListMeta = {
-    id: string;
-    title: string;
-    description: string;
-    creatorName: string;
-    creatorUsername: string;
-    member_id: string;
-    family_code: string;
-};
-
-type WishItemUI = {
-    id: string;
-    name: string;
-    imageUrl: string;
-    price: string;
-    url?: string;
-    liked: boolean;
-    notes?: string;
-    priceRaw?: number;
-};
-
-const PLACEHOLDER_IMG =
-    "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=900";
-
-function formatCLP(value: number) {
-    return new Intl.NumberFormat("es-CL", {
-        style: "currency",
-        currency: "CLP",
-        maximumFractionDigits: 0,
-    }).format(value);
-}
-
-function safeNumber(value: unknown): number {
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string") return Number(value.replace(/[^\d]/g, "")) || 0;
-    return 0;
-}
-
 export default function PublicWishListPage() {
     const router = useRouter();
-    const pathname = usePathname();
+    const { listId } = useParams<{ listId: string }>();
 
-    // /wishlists/{listId}
-    const segments = pathname.split("/").filter(Boolean);
-    const listId = segments[1] || "";
+    const { meta, items, loading, error } = useWishListData(listId);
+    const itemModal = useWishItemModal();
 
-    const [meta, setMeta] = useState<WishListMeta | null>(null);
-    const [items, setItems] = useState<WishItemUI[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
+    // ✅ si está logeado y es dueño -> redirigir a vista privada con sidebar
     useEffect(() => {
-        if (!listId) return;
+        if (!meta) return;
 
-        let cancelled = false;
+        try {
+            const raw = localStorage.getItem("gf_session");
+            if (!raw) return;
 
-        (async () => {
-            try {
-                setLoading(true);
-                setError(null);
+            const s = JSON.parse(raw) as Session;
+            const isOwner = s.member.id === meta.member_id && s.familyCode === meta.family_code;
 
-                const [metaRes, itemsRes] = await Promise.all([
-                    fetch(`/api/lists/${listId}`),
-                    fetch(`/api/lists/${listId}/items`),
-                ]);
-
-                const metaData = await metaRes.json().catch(() => null);
-                const itemsData = await itemsRes.json().catch(() => null);
-
-                if (!metaRes.ok) throw new Error(metaData?.message || "No se pudo cargar la lista.");
-                if (!itemsRes.ok) throw new Error(itemsData?.message || "No se pudieron cargar los deseos.");
-
-                // ✅ si está logeado y es dueño -> redirigir a vista interna con sidebar
-                try {
-                    const raw = localStorage.getItem("gf_session");
-                    if (raw) {
-                        const s = JSON.parse(raw) as Session;
-                        if (s.member.id === metaData.member_id && s.familyCode === metaData.family_code) {
-                            router.replace(`/f/${s.familyCode}/perfil/${s.member.id}/wishlists/${listId}`);
-                            return;
-                        }
-                    }
-                } catch {
-                    // ignore
-                }
-
-                if (cancelled) return;
-
-                setMeta(metaData as WishListMeta);
-
-                const mapped: WishItemUI[] = (itemsData?.items ?? []).map((it: any) => {
-                    const raw = safeNumber(it.price);
-                    return {
-                        id: it.id,
-                        name: it.name,
-                        url: it.url ?? undefined,
-                        liked: true,
-                        imageUrl: PLACEHOLDER_IMG,
-                        notes: it.notes ?? "",
-                        priceRaw: raw,
-                        price: formatCLP(raw),
-                    };
-                });
-
-                setItems(mapped);
-            } catch (e: any) {
-                if (!cancelled) setError(e?.message || "Error al cargar.");
-            } finally {
-                if (!cancelled) setLoading(false);
+            if (isOwner) {
+                router.replace(`/f/${s.familyCode}/perfil/${s.member.id}/wishlists/${meta.id}`);
             }
-        })();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [listId, router]);
+        } catch {
+            // ignore
+        }
+    }, [meta, router]);
 
     if (!listId) {
         return (
@@ -155,25 +67,31 @@ export default function PublicWishListPage() {
     }
 
     return (
-        <WishListDetail
-            listId={listId}
-            title={meta.title}
-            description={meta.description}
-            creatorName={meta.creatorName}
-            creatorUsername={meta.creatorUsername}
-            items={items}
-            // ✅ público:
-            showBack={false}
-            canAddItem={false}
-            // CTA
-            loginCta={{
-                label: "Ingresar",
-                onClick: () => router.push(`/f/${meta.family_code}`),
-            }}
-            // click item: si quieres en público abrir url o modal info, lo hacemos después
-            onItemClick={(item) => {
-                if (item.url) window.open(item.url, "_blank", "noopener,noreferrer");
-            }}
-        />
+        <>
+            <WishListDetail
+                listId={listId}
+                title={meta.title}
+                description={meta.description}
+                creatorName={meta.creatorName}
+                creatorUsername={meta.creatorUsername}
+                items={items}
+                showBack={false}
+                canAddItem={false}
+                loginCta={{
+                    label: "Ingresar",
+                    onClick: () => router.push(`/f/${meta.family_code}`),
+                }}
+                // ✅ Público: abrir modal informativo
+                onItemClick={(item) => itemModal.openModal(item)}
+            />
+
+            {itemModal.open && itemModal.item ? (
+                <WishItemModal
+                    item={itemModal.item as any}
+                    onClose={itemModal.closeModal}
+                    canManage={false} // ✅ público: no editar/eliminar
+                />
+            ) : null}
+        </>
     );
 }

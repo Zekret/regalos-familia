@@ -11,32 +11,12 @@ import type { AddWishItemPayload } from "@/app/f/[code]/perfil/components/AddWis
 
 import { WishItemModal } from "@/app/f/[code]/perfil/components/WishItemModal";
 import { useWishItemModal } from "@/app/f/[code]/perfil/hooks/useWishItemModal";
+import { useWishListData } from "@/app/f/[code]/perfil/hooks/useWishListData";
 
 type Session = {
   familyCode: string;
   member: { id: string; name: string };
   token: string;
-};
-
-type WishListMeta = {
-  id: string;
-  title: string;
-  description: string;
-  creatorName: string;
-  creatorUsername: string;
-  member_id: string;
-  family_code: string;
-};
-
-type WishItemUI = {
-  id: string;
-  name: string;
-  imageUrl: string;
-  price: string;
-  url?: string;
-  liked: boolean;
-  notes?: string;
-  priceRaw?: number;
 };
 
 const PLACEHOLDER_IMG =
@@ -66,11 +46,8 @@ export default function InternalWishListDetailPage() {
   const { code, userId, listId } = useParams<{ code: string; userId: string; listId: string }>();
 
   const [session, setSession] = useState<Session | null>(null);
-  const [meta, setMeta] = useState<WishListMeta | null>(null);
-  const [items, setItems] = useState<WishItemUI[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
+  const { meta, items, setItems, loading, error } = useWishListData(listId);
   const itemModal = useWishItemModal();
 
   // ✅ Sidebar/Nav en modo "wishes"
@@ -97,64 +74,13 @@ export default function InternalWishListDetailPage() {
     }
   }, [code, userId, listId, router]);
 
-  async function loadAll() {
-    const [metaRes, itemsRes] = await Promise.all([
-      fetch(`/api/lists/${listId}`),
-      fetch(`/api/lists/${listId}/items`),
-    ]);
-
-    const metaData = await metaRes.json().catch(() => null);
-    const itemsData = await itemsRes.json().catch(() => null);
-
-    if (!metaRes.ok) throw new Error(metaData?.message || "No se pudo cargar la lista.");
-    if (!itemsRes.ok) throw new Error(itemsData?.message || "No se pudieron cargar los deseos.");
-
-    // ✅ solo dueño: si no, a público
-    if (metaData?.member_id !== userId) {
-      router.replace(`/wishlists/${listId}`);
-      return;
-    }
-
-    setMeta(metaData as WishListMeta);
-
-    const mapped: WishItemUI[] = (itemsData?.items ?? []).map((it: any) => {
-      const raw = safeNumber(it.price);
-      return {
-        id: it.id,
-        name: it.name,
-        url: it.url ?? undefined,
-        liked: true,
-        imageUrl: PLACEHOLDER_IMG,
-        notes: it.notes ?? "",
-        priceRaw: raw,
-        price: formatCLP(raw),
-      };
-    });
-
-    setItems(mapped);
-  }
-
+  // ✅ solo dueño: si no, a público
   useEffect(() => {
-    if (!listId || !userId) return;
-    let cancelled = false;
-
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        await loadAll();
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "Error al cargar.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listId, userId]);
+    if (!meta) return;
+    if (meta.member_id !== userId) {
+      router.replace(`/wishlists/${listId}`);
+    }
+  }, [meta, userId, listId, router]);
 
   async function createItem(payload: AddWishItemPayload) {
     const res = await fetch(`/api/lists/${listId}/items`, {
@@ -175,29 +101,14 @@ export default function InternalWishListDetailPage() {
         name: created?.name ?? payload.name,
         url: created?.url ?? payload.url,
         liked: true,
-        imageUrl: payload.imageUrl ?? PLACEHOLDER_IMG,
+        // ✅ nunca guardar ""
+        imageUrl: payload.imageUrl?.trim() ? payload.imageUrl.trim() : PLACEHOLDER_IMG,
         notes: created?.notes ?? payload.notes ?? "",
         priceRaw: raw,
         price: formatCLP(raw),
       },
       ...prev,
     ]);
-  }
-
-  function handleDeleted(id: string) {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-  }
-
-  function handleUpdated(updated: any) {
-    const raw = safeNumber(updated.price ?? updated.priceRaw);
-    const ui: WishItemUI = {
-      ...updated,
-      priceRaw: raw,
-      price: formatCLP(raw),
-      imageUrl: updated.imageUrl ?? PLACEHOLDER_IMG,
-      liked: true,
-    };
-    setItems((prev) => prev.map((i) => (i.id === ui.id ? ui : i)));
   }
 
   const handleLogout = () => {
@@ -228,7 +139,6 @@ export default function InternalWishListDetailPage() {
       <Sidebar
         activeSection={activeSection}
         onSectionChange={() => {
-          // ✅ aquí NO queremos setState: queremos navegar
           router.push(`/f/${code}/perfil/${userId}?section=family`);
         }}
         memberName={session.member.name}
@@ -252,12 +162,20 @@ export default function InternalWishListDetailPage() {
             onItemClick={(item) => itemModal.openModal(item)}
           />
 
+          {/* ✅ Privado: modal con gestión */}
           {itemModal.open && itemModal.item ? (
             <WishItemModal
               item={itemModal.item as any}
               onClose={itemModal.closeModal}
-              onUpdated={handleUpdated}
-              onDeleted={handleDeleted}
+              canManage={true}
+              // ⚠️ Aquí conecta tus handlers reales de editar/eliminar
+              // (si ya tienes otro modal de edición/borrado, dispara eso desde acá)
+              onEdit={() => {
+                // TODO: conectar edición real
+              }}
+              onDelete={() => {
+                // TODO: conectar borrado real
+              }}
             />
           ) : null}
         </div>

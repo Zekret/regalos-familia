@@ -1,27 +1,42 @@
-import React, { useState } from 'react'
+"use client";
 
-const ERROR_IMG_SRC =
-    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODgiIGhlaWdodD0iODgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgc3Ryb2tlPSIjMDAwIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBvcGFjaXR5PSIuMyIgZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIzLjciPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjU2IiBoZWlnaHQ9IjU2IiByeD0iNiIvPjxwYXRoIGQ9Im0xNiA1OCAxNi0xOCAzMiAzMiIvPjxjaXJjbGUgY3g9IjUzIiBjeT0iMzUiIHI9IjciLz48L3N2Zz4KCg=='
+import * as React from "react";
 
-export function ImageWithFallback(props: React.ImgHTMLAttributes<HTMLImageElement>) {
-    const [didError, setDidError] = useState(false)
+type Props = React.ImgHTMLAttributes<HTMLImageElement> & {
+    fallbackSrc?: string;
+};
 
-    const handleError = () => {
-        setDidError(true)
-    }
+const DEFAULT_FALLBACK =
+    "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=900";
 
-    const { src, alt, style, className, ...rest } = props
+export function ImageWithFallback({
+    src,
+    fallbackSrc = DEFAULT_FALLBACK,
+    alt = "",
+    onError,
+    ...rest
+}: Props) {
+    // ✅ Nunca permitir src vacío
+    const initial = React.useMemo(() => {
+        const s = typeof src === "string" ? src.trim() : "";
+        return s.length > 0 ? s : fallbackSrc;
+    }, [src, fallbackSrc]);
 
-    return didError ? (
-        <div
-            className={`inline-block bg-gray-100 text-center align-middle ${className ?? ''}`}
-            style={style}
-        >
-            <div className="flex items-center justify-center w-full h-full">
-                <img src={ERROR_IMG_SRC} alt="Error loading image" {...rest} data-original-url={src} />
-            </div>
-        </div>
-    ) : (
-        <img src={src} alt={alt} className={className} style={style} {...rest} onError={handleError} />
-    )
+    const [imgSrc, setImgSrc] = React.useState(initial);
+
+    // ✅ Si igual quedara vacío, no renderizar <img> (evita warning src="")
+    if (!imgSrc || imgSrc.trim().length === 0) return null;
+
+    return (
+        <img
+            {...rest}
+            src={imgSrc}
+            alt={alt}
+            onError={(e) => {
+                // fallback una vez
+                setImgSrc(fallbackSrc);
+                onError?.(e);
+            }}
+        />
+    );
 }
