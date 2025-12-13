@@ -20,7 +20,7 @@ export default function PublicWishListsPage() {
     const router = useRouter();
     const pathname = usePathname();
 
-    // /u/{memberId}/wishlists -> ["u","{memberId}","wishlists"]
+    // /u/{memberId}/wishlists
     const segments = pathname.split("/").filter(Boolean);
     const memberId = segments[1] || "";
 
@@ -30,36 +30,35 @@ export default function PublicWishListsPage() {
     useEffect(() => {
         if (!memberId) return;
 
-        // 1) si está logeado y es el dueño → redirigir a vista interna con sidebar
+        // 1️⃣ si está logeado y es el dueño → redirigir a vista interna
         try {
             const raw = localStorage.getItem("gf_session");
             if (raw) {
                 const session = JSON.parse(raw) as Session;
 
-                if (session?.member?.id === memberId && session?.familyCode) {
-                    router.replace(`/f/${session.familyCode}/perfil/${session.member.id}?section=wishes`);
+                if (session.member.id === memberId && session.familyCode) {
+                    router.replace(
+                        `/f/${session.familyCode}/perfil/${session.member.id}?section=wishes`
+                    );
                     return;
                 }
             }
-        } catch (e) {
-            console.warn("[PublicWishListsPage] sesión inválida:", e);
+        } catch {
+            // ignore
         }
 
-        // 2) cargar info del dueño (para mostrar el nombre arriba)
+        // 2️⃣ cargar info pública del dueño
         (async () => {
             try {
                 setLoadingOwner(true);
 
-                const res = await fetch(`/api/members/${memberId}`, { method: "GET" });
+                const res = await fetch(`/api/public/members/${memberId}`);
                 const data = await res.json().catch(() => null);
 
-                if (res.ok && data?.member) {
-                    setOwner({
-                        name: data.member.name ?? "Usuario",
-                        username: data.member.username ?? undefined,
-                        avatar: data.member.avatar ?? undefined,
-                    });
+                if (res.ok && data?.name) {
+                    setOwner({ name: data.name, username: data.username ?? undefined, avatar: data.avatar ?? undefined });
                 }
+                
             } finally {
                 setLoadingOwner(false);
             }
@@ -74,17 +73,17 @@ export default function PublicWishListsPage() {
         );
     }
 
-    // Mientras carga owner, igual podemos renderizar WishList (no bloquea)
+    console.log(owner, "Owneerrr")
+
     return (
         <div className="min-h-screen bg-black">
             <WishList
                 memberId={memberId}
-                owner={owner}
-                canCreate={false}           // ✅ público: NO crear
-                showLoginCTA               // ✅ público: botón ingresar
-                onLogin={() => router.push("/")} // ✅ ajustar si tienes ruta propia de login
+                owner={owner}          // ✅ ahora sí viene el nombre real
+                canCreate={false}      // público
+                showLoginCTA
+                onLogin={() => router.push("/")}
             />
-            {loadingOwner ? null : null}
         </div>
     );
 }
