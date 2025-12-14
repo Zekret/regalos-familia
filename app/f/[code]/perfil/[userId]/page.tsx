@@ -8,8 +8,6 @@ import { WishList } from "@/app/f/[code]/perfil/components/WishList";
 import { Sidebar } from "../components/Sidebar";
 import { MobileNav } from "../components/MobileNav";
 
-
-
 type Session = {
     familyCode: string;
     member: { id: string; name: string };
@@ -50,6 +48,8 @@ export default function PerfilPage() {
         const isWishes = searchParams.get("section") === "wishes";
         if (!isWishes) return;
 
+        if (!code || !userId) return;
+
         try {
             const raw = localStorage.getItem("gf_session");
             if (!raw) {
@@ -66,51 +66,62 @@ export default function PerfilPage() {
                 router.replace(`/u/${userId}/wishlists`);
                 return;
             }
-        } catch (e) {
+        } catch {
             router.replace(`/u/${userId}/wishlists`);
         }
     }, [code, userId, router, searchParams]);
 
     // ✅ Leer sesión normal (solo para renderizar vista interna)
+    // Importante: si NO hay sesión o NO coincide, NO es "error":
+    // simplemente no puede ver el perfil privado.
     useEffect(() => {
+        if (!code || !userId) return;
+
         try {
             const raw = localStorage.getItem("gf_session");
+
             if (!raw) {
-                setSessionError("No se encontró la sesión. Vuelve a iniciar sesión.");
+                setSession(null);
+                setSessionError(null);
                 setSessionLoading(false);
                 return;
             }
 
             const parsed = JSON.parse(raw) as Session;
 
-            if (parsed.familyCode !== code) {
-                setSessionError("La sesión no coincide con esta familia.");
-                setSessionLoading(false);
-                return;
-            }
+            const isSameFamily = parsed.familyCode === code;
+            const isOwner = parsed.member.id === userId;
 
-            if (parsed.member.id !== userId) {
-                setSessionError("La sesión no coincide con este usuario.");
+            if (!isSameFamily || !isOwner) {
+                setSession(null);
+                setSessionError(null);
                 setSessionLoading(false);
                 return;
             }
 
             setSession(parsed);
+            setSessionError(null);
             setSessionLoading(false);
         } catch (err) {
             console.error("Error leyendo gf_session:", err);
-            setSessionError("Ocurrió un problema al leer tu sesión.");
+            setSession(null);
+            setSessionError(null);
             setSessionLoading(false);
         }
     }, [code, userId]);
+
+    // ✅ Si no hay sesión válida, mandarlo al login del miembro (NO al inicio /f/${code})
+    useEffect(() => {
+        if (!sessionLoading && !sessionError && !session && code) {
+            router.replace(`/f/${code}/perfil`);
+        }
+    }, [sessionLoading, sessionError, session, code, router]);
 
     const handleLogout = () => {
         localStorage.removeItem("gf_session");
         router.push(`/f/${code}`);
     };
 
-    // ⚠️ Si viene directo a wishes y no es dueño, el useEffect de arriba ya redirige.
-    // Esto es fallback UI por si tarda en redirigir o cae en family.
     if (sessionLoading) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
@@ -119,24 +130,30 @@ export default function PerfilPage() {
         );
     }
 
-    if (sessionError || !session) {
-        // Si alguien comparte el perfil y no hay sesión:
-        // - si estaban en wishes, el guard ya los mandó a /u/:id/wishlists
-        // - si estaban en family (privado), aquí puedes mandarlos al login de la familia
+    if (sessionError) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="space-y-4 text-center">
                     <p className="text-sm text-red-400 bg-red-950/40 border border-red-700 px-4 py-3 rounded-xl max-w-sm mx-auto">
-                        {sessionError ?? "No hay sesión activa. Vuelve a iniciar sesión."}
+                        {sessionError}
                     </p>
                     <button
                         type="button"
-                        onClick={() => router.push(`/f/${code}`)}
+                        onClick={() => router.push(`/f/${code}/perfil`)}
                         className="text-xs text-gray-300 underline hover:text-emerald-400"
                     >
-                        Ir al inicio de la familia
+                        Ir a iniciar sesión
                     </button>
                 </div>
+            </div>
+        );
+    }
+
+    // Mientras redirige (cuando no hay sesión válida)
+    if (!session) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <p className="text-sm text-gray-400">Redirigiendo...</p>
             </div>
         );
     }
@@ -155,16 +172,27 @@ export default function PerfilPage() {
             <main className="flex-1 flex flex-col min-h-0">
                 <div className="flex-1 overflow-y-auto pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0">
                     {activeSection === "family" && (
-                        <FamilyList familyCode={session.familyCode} currentMemberId={session.member.id} />
+                        <FamilyList
+                            familyCode={session.familyCode}
+                            currentMemberId={session.member.id}
+                        />
                     )}
 
                     {activeSection === "wishes" && (
-                        <WishList memberId={session.member.id} owner={{ name: session.member.name }} canCreate />
+                        <WishList
+                            memberId={session.member.id}
+                            owner={{ name: session.member.name }}
+                            canCreate
+                        />
                     )}
                 </div>
             </main>
 
-            <MobileNav activeSection={activeSection} familyHref={familyHref} wishesHref={wishesHref} />
+            <MobileNav
+                activeSection={activeSection}
+                familyHref={familyHref}
+                wishesHref={wishesHref}
+            />
         </div>
     );
 }

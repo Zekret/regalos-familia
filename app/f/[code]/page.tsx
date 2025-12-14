@@ -8,7 +8,7 @@ import { X, User } from "lucide-react";
 type FamilyMember = {
     id: string;
     name: string;
-    wishListCount?: number;
+    wishListsCount?: number;
     avatar?: string;
 };
 
@@ -207,7 +207,7 @@ export default function FamiliaPage() {
                                         <div className="flex-1 min-w-0">
                                             <p className="text-white truncate">{member.name}</p>
                                             <p className="text-gray-400 text-sm">
-                                                {member.wishListCount ?? 0} deseos
+                                                {member.wishListsCount ?? 0} deseos
                                             </p>
                                         </div>
                                     </div>

@@ -18,6 +18,16 @@ type CreateMemberResponse = {
     };
 };
 
+type LoginMemberResponse = {
+    familyCode: string;
+    member: {
+        id: string;
+        name: string;
+    };
+    lists: { id: string; title: string }[];
+    token: string;
+};
+
 export default function NuevoMiembroPage() {
     const pathname = usePathname();
     const router = useRouter();
@@ -33,7 +43,6 @@ export default function NuevoMiembroPage() {
     const [showConfirmPin, setShowConfirmPin] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [created, setCreated] = useState<CreateMemberResponse | null>(null);
 
     const handleClose = () => {
         router.push(`/f/${code}`);
@@ -61,24 +70,50 @@ export default function NuevoMiembroPage() {
         setIsSubmitting(true);
 
         try {
-            const res = await fetch(`/api/families/${code}/members`, {
+            // 1) Crear miembro
+            const resCreate = await fetch(`/api/families/${code}/members`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     name: name.trim(),
                     pin,
                 }),
             });
 
-            if (!res.ok) {
-                const data = await res.json().catch(() => null);
+            if (!resCreate.ok) {
+                const data = await resCreate.json().catch(() => null);
                 throw new Error(data?.message || "No se pudo crear tu perfil.");
             }
 
-            const data: CreateMemberResponse = await res.json();
-            setCreated(data);
+            const created: CreateMemberResponse = await resCreate.json();
+
+            // 2) Login automático para generar token y guardar gf_session
+            const resLogin = await fetch(`/api/families/${code}/members/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: name.trim(),
+                    pin,
+                }),
+            });
+
+            if (!resLogin.ok) {
+                const data = await resLogin.json().catch(() => null);
+                throw new Error(
+                    data?.message ||
+                    "Tu perfil se creó, pero no se pudo iniciar sesión automáticamente. Intenta ingresar con tu PIN."
+                );
+            }
+
+            const sessionData: LoginMemberResponse = await resLogin.json();
+
+            // 3) Guardar sesión
+            if (typeof window !== "undefined") {
+                localStorage.setItem("gf_session", JSON.stringify(sessionData));
+            }
+
+            // 4) Redirigir directo al perfil del nuevo usuario
+            router.replace(`/f/${code}/perfil/${created.member.id}?section=family`);
         } catch (err: any) {
             setError(err.message || "Ocurrió un error inesperado.");
         } finally {
@@ -98,157 +133,104 @@ export default function NuevoMiembroPage() {
                 </button>
 
                 <div className="p-6 sm:p-8">
-                    {created ? (
-                        // --- Vista de éxito (mismo estilo dark que crear familia) ---
-                        <>
-                            <div className="mb-6">
-                                <h1 className="text-white text-2xl sm:text-3xl mb-2 text-left">
-                                    ✅ Perfil creado
-                                </h1>
-                                <p className="text-gray-300 text-sm">
-                                    Se creó tu perfil y tu lista de deseos dentro de la familia con
-                                    código{" "}
-                                    <span className="font-mono font-semibold">
-                                        {code}
-                                    </span>
-                                    .
-                                </p>
-                            </div>
+                    {/* --- Formulario --- */}
+                    <div className="mb-6">
+                        <h1 className="text-white text-2xl sm:text-3xl mb-2">Soy nuevo aquí</h1>
+                        <p className="text-gray-400 text-sm">
+                            Crea tu perfil en esta familia y elige un PIN para tu lista de deseos.
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                            Código de la familia:{" "}
+                            <span className="font-mono font-semibold text-gray-200">{code}</span>
+                        </p>
+                    </div>
 
-                            <div className="space-y-3 text-sm text-gray-100 mb-4">
-                                <p>
-                                    Tu nombre en la familia es:{" "}
-                                    <span className="font-semibold">{created.member.name}</span>
-                                </p>
-                                <p>
-                                    Recuerda tu PIN de 4 dígitos, lo necesitarás para entrar a tu lista
-                                    desde este u otros dispositivos.
-                                </p>
-                            </div>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Tu nombre */}
+                        <div>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                                placeholder="Nombre de usuario"
+                            />
+                        </div>
 
-                            <div className="space-y-3">
-                                <Link
-                                    href={`/f/${code}/perfil`}
-                                    className="block w-full text-center py-3.5 rounded-xl bg-white text-slate-900 font-semibold text-sm hover:bg-gray-100 transition-colors"
-                                >
-                                    Ir a “Ya tengo una lista aquí”
-                                </Link>
-
-                                <Link
-                                    href={`/f/${code}`}
-                                    className="block text-center text-sm text-gray-300 hover:text-emerald-400 transition-colors underline"
-                                >
-                                    ← Volver a la familia
-                                </Link>
-                            </div>
-                        </>
-                    ) : (
-                        // --- Vista del formulario (mismo look & feel que CrearFamiliaPage) ---
-                        <>
-                            <div className="mb-6">
-                                <h1 className="text-white text-2xl sm:text-3xl mb-2">
-                                    Soy nuevo aquí
-                                </h1>
-                                <p className="text-gray-400 text-sm">
-                                    Crea tu perfil en esta familia y elige un PIN para tu lista de deseos.
-                                </p>
-                                <p className="text-xs text-gray-500 mt-2">
-                                    Código de la familia:{" "}
-                                    <span className="font-mono font-semibold text-gray-200">
-                                        {code}
-                                    </span>
-                                </p>
-                            </div>
-
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                {/* Tu nombre */}
-                                <div>
-                                    <input
-                                        type="text"
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
-                                        placeholder="Nombre de usuario"
-                                    />
-                                </div>
-
-                                {/* PIN */}
-                                <div>
-                                    <div className="relative">
-                                        <input
-                                            type={showPin ? "text" : "password"}
-                                            inputMode="numeric"
-                                            maxLength={4}
-                                            value={pin}
-                                            onChange={(e) => {
-                                                const value = e.target.value.replace(/\D/g, "").slice(0, 4);
-                                                setPin(value);
-                                            }}
-                                            className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 pr-12 text-sm tracking-[0.5em] text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
-                                            placeholder="••••"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPin(!showPin)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
-                                        >
-                                            {showPin ? (
-                                                <EyeOff className="w-5 h-5" />
-                                            ) : (
-                                                <Eye className="w-5 h-5" />
-                                            )}
-                                        </button>
-                                    </div>
-                                    <p className="text-gray-400 text-xs mt-2 px-1">
-                                        Elige un PIN de 4 dígitos, será tu llave para entrar a tu lista.
-                                    </p>
-                                </div>
-
-                                {/* Confirmar PIN */}
-                                <div>
-                                    <div className="relative">
-                                        <input
-                                            type={showConfirmPin ? "text" : "password"}
-                                            inputMode="numeric"
-                                            maxLength={4}
-                                            value={pinConfirm}
-                                            onChange={(e) => {
-                                                const value = e.target.value.replace(/\D/g, "").slice(0, 4);
-                                                setPinConfirm(value);
-                                            }}
-                                            className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 pr-12 text-sm tracking-[0.5em] text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
-                                            placeholder="••••"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowConfirmPin(!showConfirmPin)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
-                                        >
-                                            {showConfirmPin ? (
-                                                <EyeOff className="w-5 h-5" />
-                                            ) : (
-                                                <Eye className="w-5 h-5" />
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {error && (
-                                    <p className="text-sm text-red-400 bg-red-950/40 border border-red-700 rounded-lg px-3 py-2">
-                                        {error}
-                                    </p>
-                                )}
-
+                        {/* PIN */}
+                        <div>
+                            <div className="relative">
+                                <input
+                                    type={showPin ? "text" : "password"}
+                                    inputMode="numeric"
+                                    maxLength={4}
+                                    value={pin}
+                                    onChange={(e) => {
+                                        const value = e.target.value.replace(/\D/g, "").slice(0, 4);
+                                        setPin(value);
+                                    }}
+                                    className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 pr-12 text-sm tracking-[0.5em] text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                                    placeholder="••••"
+                                />
                                 <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="w-full bg-white text-slate-900 rounded-xl py-3.5 hover:bg-gray-100 transition-colors mt-4 disabled:opacity-60 disabled:cursor-not-allowed"
+                                    type="button"
+                                    onClick={() => setShowPin(!showPin)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
                                 >
-                                    {isSubmitting ? "Creando tu perfil..." : "Crear mi perfil"}
+                                    {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
-                            </form>
-                        </>
-                    )}
+                            </div>
+                            <p className="text-gray-400 text-xs mt-2 px-1">
+                                Elige un PIN de 4 dígitos, será tu llave para entrar a tu lista.
+                            </p>
+                        </div>
+
+                        {/* Confirmar PIN */}
+                        <div>
+                            <div className="relative">
+                                <input
+                                    type={showConfirmPin ? "text" : "password"}
+                                    inputMode="numeric"
+                                    maxLength={4}
+                                    value={pinConfirm}
+                                    onChange={(e) => {
+                                        const value = e.target.value.replace(/\D/g, "").slice(0, 4);
+                                        setPinConfirm(value);
+                                    }}
+                                    className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 pr-12 text-sm tracking-[0.5em] text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                                    placeholder="••••"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPin(!showConfirmPin)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                                >
+                                    {showConfirmPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        {error && (
+                            <p className="text-sm text-red-400 bg-red-950/40 border border-red-700 rounded-lg px-3 py-2">
+                                {error}
+                            </p>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="w-full bg-white text-slate-900 rounded-xl py-3.5 hover:bg-gray-100 transition-colors mt-4 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            {isSubmitting ? "Creando tu perfil..." : "Crear mi perfil"}
+                        </button>
+
+                        <Link
+                            href={`/f/${code}`}
+                            className="block text-center text-xs text-gray-400 hover:text-emerald-400 transition-colors underline pt-2"
+                        >
+                            ← Volver a la familia
+                        </Link>
+                    </form>
                 </div>
             </div>
         </div>
