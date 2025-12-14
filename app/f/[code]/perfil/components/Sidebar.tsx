@@ -10,6 +10,7 @@ interface SidebarProps {
     memberName?: string;
     familyCode?: string;
     onLogout?: () => void;
+    onSectionChange?: (section: "family" | "wishes") => void;
 }
 
 function safeHref(href?: string) {
@@ -54,8 +55,8 @@ export function Sidebar({
                             onClick={preventIfInvalid(familyHref)}
                             aria-disabled={!familyHref?.trim()}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === "family"
-                                    ? "bg-gray-800 text-white"
-                                    : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
+                                ? "bg-gray-800 text-white"
+                                : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
                                 }`}
                         >
                             <Users className="w-5 h-5" />
@@ -69,8 +70,8 @@ export function Sidebar({
                             onClick={preventIfInvalid(wishesHref)}
                             aria-disabled={!wishesHref?.trim()}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === "wishes"
-                                    ? "bg-gray-800 text-white"
-                                    : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
+                                ? "bg-gray-800 text-white"
+                                : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
                                 }`}
                         >
                             <Heart className="w-5 h-5" />
