@@ -7,7 +7,6 @@ import { Sidebar } from "@/app/f/[code]/perfil/components/Sidebar";
 import { MobileNav } from "@/app/f/[code]/perfil/components/MobileNav";
 
 import { WishListDetail } from "@/app/f/[code]/perfil/components/WishListDetail";
-import type { AddWishItemPayload } from "@/app/f/[code]/perfil/components/AddWishItemModal";
 
 import { WishItemModal } from "@/app/f/[code]/perfil/components/WishItemModal";
 import { useWishItemModal } from "@/app/f/[code]/perfil/hooks/useWishItemModal";
@@ -82,34 +81,36 @@ export default function InternalWishListDetailPage() {
     }
   }, [meta, userId, listId, router]);
 
-  async function createItem(payload: AddWishItemPayload) {
+  async function createItem(formData: FormData) {
     const res = await fetch(`/api/lists/${listId}/items`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: formData, // ✅ CLAVE
     });
 
     const data = await res.json().catch(() => null);
     if (!res.ok) throw new Error(data?.message || "No se pudo agregar.");
 
     const created = data?.item;
-    const raw = safeNumber(created?.price ?? payload.price);
+    if (!created) return;
+
+    const raw = safeNumber(created.price);
 
     setItems((prev) => [
       {
-        id: created?.id ?? crypto.randomUUID(),
-        name: created?.name ?? payload.name,
-        url: created?.url ?? payload.url,
+        id: created.id,
+        name: created.name,
+        url: created.url,
         liked: true,
-        // ✅ nunca guardar ""
-        imageUrl: payload.imageUrl?.trim() ? payload.imageUrl.trim() : PLACEHOLDER_IMG,
-        notes: created?.notes ?? payload.notes ?? "",
+        // ✅ ahora SIEMPRE viene desde backend (storage o default)
+        imageUrl: created.imageUrl,
+        notes: created.notes ?? "",
         priceRaw: raw,
         price: formatCLP(raw),
       },
       ...prev,
     ]);
   }
+
 
   const handleLogout = () => {
     localStorage.removeItem("gf_session");

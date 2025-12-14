@@ -1,15 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Link2, ArrowRight, ArrowLeft, Wand2 } from "lucide-react";
-
-export type AddWishItemPayload = {
-    name: string;
-    notes: string;
-    url: string;
-    price: number;
-    imageUrl?: string | null; // preview (no se guarda en DB si no tienes columna)
-};
+import { X, Link2, ArrowRight, ArrowLeft, Wand2, ImagePlus, Trash2 } from "lucide-react";
 
 type PreviewResponse = {
     title: string | null;
@@ -22,7 +14,8 @@ type PreviewResponse = {
 export function AddWishItemModal(props: {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (payload: AddWishItemPayload) => Promise<void> | void;
+    // ✅ Ahora mandamos FormData para soportar files + scrapedImage
+    onSubmit: (formData: FormData) => Promise<void> | void;
 }) {
     const { isOpen, onClose, onSubmit } = props;
 
@@ -38,7 +31,9 @@ export function AddWishItemModal(props: {
     const [notes, setNotes] = useState("");
     const [url, setUrl] = useState("");
     const [price, setPrice] = useState<string>("");
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [imageUrl, setImageUrl] = useState<string | null>(null); // imagen detectada por preview
+
+    const [file, setFile] = useState<File | null>(null);
 
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -55,6 +50,8 @@ export function AddWishItemModal(props: {
         setPrice("");
         setImageUrl(null);
 
+        setFile(null);
+
         setSaving(false);
         setSaveError(null);
     }
@@ -67,9 +64,7 @@ export function AddWishItemModal(props: {
 
     const canSave = useMemo(() => {
         if (!name.trim()) return false;
-        const numeric = Number(
-            String(price).replace(/[^\d.,]/g, "").replace(/,/g, ".")
-        );
+        const numeric = Number(String(price).replace(/[^\d.,]/g, "").replace(/,/g, "."));
         return Number.isFinite(numeric) && numeric >= 0 && !saving;
     }, [name, price, saving]);
 
@@ -110,6 +105,11 @@ export function AddWishItemModal(props: {
         setStep(2);
     }
 
+    function onPickFile(nextFiles: FileList | null) {
+        if (!nextFiles || !nextFiles[0]) return;
+        setFile(nextFiles[0]); // ✅ solo 1
+    }
+
     async function handleSave() {
         if (!canSave) return;
 
@@ -117,18 +117,28 @@ export function AddWishItemModal(props: {
         setSaveError(null);
 
         try {
-            const numericPrice = Number(
-                String(price).replace(/[^\d.,]/g, "").replace(/,/g, ".")
-            );
+            const numericPrice = Number(String(price).replace(/[^\d.,]/g, "").replace(/,/g, "."));
             if (!Number.isFinite(numericPrice)) throw new Error("Precio inválido.");
 
-            await onSubmit({
-                name: name.trim(),
-                notes: notes.trim(),
-                url: url.trim(),
-                price: numericPrice,
-                imageUrl,
-            });
+            // ✅ armamos FormData para enviar: texto + files + scrapedImage
+            const formData = new FormData();
+            formData.append("name", name.trim());
+            formData.append("notes", notes.trim());
+            formData.append("url", url.trim());
+            formData.append("price", String(numericPrice));
+
+            // Si el usuario NO subió archivos, pero tenemos preview de URL → mandar scrapedImage
+            // para que el backend la descargue y la suba al storage.
+            if (!file && imageUrl) {
+                formData.append("scrapedImage", imageUrl);
+            }
+
+            // Si hay archivo manual
+            if (file) {
+                formData.append("files", file);
+            }
+
+            await onSubmit(formData);
 
             safeClose();
         } catch (e: any) {
@@ -242,6 +252,7 @@ export function AddWishItemModal(props: {
                                 </div>
                             )}
 
+                            {/* Preview URL detectada (solo informativo) */}
                             {imageUrl ? (
                                 <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex gap-3">
                                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-black/30">
@@ -251,9 +262,53 @@ export function AddWishItemModal(props: {
                                     <div className="min-w-0">
                                         <p className="text-white text-sm line-clamp-2">{name || "Sin título"}</p>
                                         <p className="text-slate-400 text-xs mt-1 line-clamp-1">{url || "(sin url)"}</p>
+                                        <p className="text-slate-500 text-xs mt-1">
+                                            Si no subes imágenes, usaremos esta imagen detectada.
+                                        </p>
                                     </div>
                                 </div>
                             ) : null}
+
+                            {/* ✅ Nuevo: subir imágenes */}
+                            <div className="space-y-2">
+                                <label className="text-xs text-slate-400">Imágenes del producto (opcional)</label>
+
+                                <label className="w-full cursor-pointer rounded-xl bg-slate-900/60 border border-white/10 px-3 py-3 text-white hover:border-white/20 flex items-center gap-2">
+                                    <ImagePlus className="w-4 h-4 text-slate-300" />
+                                    <span className="text-sm text-slate-200">
+                                        Subir imagen
+                                    </span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => onPickFile(e.target.files)}
+                                    />
+                                </label>
+
+                                {file ? (
+                                    <div className="relative w-full max-w-40 rounded-xl overflow-hidden border border-white/10 bg-black/30">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={URL.createObjectURL(file)}
+                                            alt={file.name}
+                                            className="w-full h-32 object-cover"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setFile(null)}
+                                            className="absolute top-1 right-1 rounded-lg bg-black/60 p-1 text-white hover:bg-black/80"
+                                            aria-label="Quitar imagen"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-500">
+                                        No has subido imagen. Si hay preview por URL, se usará esa.
+                                    </p>
+                                )}
+                            </div>
 
                             <div>
                                 <label className="text-xs text-slate-400">Título</label>

@@ -159,20 +159,16 @@ export async function POST(req: NextRequest) {
     const imageUrls: string[] = [];
 
     // 2a) Files (para cuando el modal ya suba múltiples imágenes)
-    for (let i = 0; i < (files?.length ?? 0); i++) {
-      const file = files[i];
-      try {
-        const publicUrl = await uploadFileToItemImages({
-          supabase: supabaseServer,
-          listId,
-          itemId,
-          index: i,
-          file,
-        });
-        imageUrls.push(publicUrl);
-      } catch (e: any) {
-        console.error("[ITEMS POST] upload file error:", e?.message || e);
-      }
+    if (files && files[0]) {
+      const file = files[0]; // ✅ solo una imagen
+      const publicUrl = await uploadFileToItemImages({
+        supabase: supabaseServer,
+        listId,
+        itemId,
+        index: 0,
+        file,
+      });
+      imageUrls.push(publicUrl);
     }
 
     // 2b) Si no vinieron files, pero viene preview desde análisis URL (tu caso actual)

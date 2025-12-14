@@ -2,7 +2,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const ITEM_IMAGES_BUCKET = "item-images";
-export const DEFAULT_ITEM_IMAGE_PATH = "default.jpg";
+export const DEFAULT_ITEM_IMAGE_PATH = "default_1.jpg";
 
 /**
  * Construye la URL pública del default.jpg del bucket.

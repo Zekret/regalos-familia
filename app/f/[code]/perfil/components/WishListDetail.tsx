@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { ArrowLeft, Heart, ExternalLink } from "lucide-react";
 import { ImageWithFallback } from "./ImageWithFallback";
-import { AddWishItemModal, AddWishItemPayload } from "./AddWishItemModal";
+import { AddWishItemModal } from "./AddWishItemModal";
 
 export interface WishItem {
     id: string;
@@ -30,7 +30,7 @@ export interface WishListDetailProps {
 
     // dueño
     canAddItem?: boolean;
-    onCreateItem?: (payload: AddWishItemPayload) => Promise<void>;
+    onCreateItem?: (formData: FormData) => Promise<void>;
 
     // click item (para modal)
     onItemClick?: (item: WishItem) => void;
@@ -73,7 +73,7 @@ export function WishListDetail({
 
                 {/* Header */}
                 <div className="flex flex-col items-center text-center mb-8 md:mb-12">
-                    <div className="w-16 h-16 bg-gradient-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center text-white mb-4">
+                    <div className="w-16 h-16 bg-linear-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center text-white mb-4">
                         <span className="text-2xl">{creatorInitial}</span>
                     </div>
 
@@ -84,7 +84,7 @@ export function WishListDetail({
                         ) : null}
                     </div>
 
-                    <h1 className="text-white mb-3">{title}</h1>
+                    <h1 className="text-white mb-3 text-3xl md:text-4xl">{title}</h1>
 
                     {hasDescription ? (
                         <p className="text-gray-400 max-w-2xl mb-6">{description}</p>
