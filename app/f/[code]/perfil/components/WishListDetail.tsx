@@ -1,8 +1,8 @@
-// app/f/[code]/perfil/components/WishListDetail.tsx
 "use client";
 
-import { useState } from "react";
-import { ArrowLeft, Heart, ExternalLink } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowLeft, Heart, ExternalLink, Share2, Link as LinkIcon, Check } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { ImageWithFallback } from "./ImageWithFallback";
 import { AddWishItemModal } from "./AddWishItemModal";
 
@@ -34,12 +34,14 @@ export interface WishListDetailProps {
 
     // click item (para modal)
     onItemClick?: (item: WishItem) => void;
+}
 
-    // público no logeado
-    loginCta?: { label: string; onClick: () => void };
+function buildPublicWishListUrl(origin: string, listId: string) {
+    return `${origin}/wishlists/${listId}`;
 }
 
 export function WishListDetail({
+    listId,
     title,
     description,
     creatorName,
@@ -50,26 +52,123 @@ export function WishListDetail({
     canAddItem = true,
     onCreateItem,
     onItemClick,
-    loginCta,
 }: WishListDetailProps) {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const creatorInitial = (creatorName?.trim()?.charAt(0) || "U").toUpperCase();
     const hasDescription = Boolean(description?.trim());
 
+    // ✅ Compartir
+    const pathname = usePathname();
+    const [showShare, setShowShare] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const publicUrl = useMemo(() => {
+        if (typeof window === "undefined") return "";
+        return buildPublicWishListUrl(window.location.origin, listId);
+    }, [pathname, listId]);
+
+    async function handleSharePublicUrl() {
+        if (!publicUrl) return;
+
+        try {
+            if (typeof navigator !== "undefined" && (navigator as any).share) {
+                await (navigator as any).share({
+                    title,
+                    text: `Mira mi lista: ${title}`,
+                    url: publicUrl,
+                });
+                return;
+            }
+
+            if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(publicUrl);
+            } else {
+                const textarea = document.createElement("textarea");
+                textarea.value = publicUrl;
+                textarea.style.position = "fixed";
+                textarea.style.left = "-9999px";
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                document.execCommand("copy");
+                document.body.removeChild(textarea);
+            }
+
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1800);
+        } catch {
+            // acá no forzamos error UI global, solo evitamos crash
+        }
+    }
+
     return (
         <div className="p-4 md:p-8">
             <div className="max-w-6xl mx-auto">
-                {/* Back (opcional) */}
-                {showBack && onBack ? (
+                {/* Back + Share (arriba) */}
+                <div className="flex items-center justify-between mb-6">
+                    {showBack && onBack ? (
+                        <button
+                            type="button"
+                            onClick={onBack}
+                            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                            <span>Volver</span>
+                        </button>
+                    ) : (
+                        <div />
+                    )}
+
+                    {/* ✅ Botón compartir (design) */}
                     <button
                         type="button"
-                        onClick={onBack}
-                        className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-6"
+                        onClick={() => setShowShare((v) => !v)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
                     >
-                        <ArrowLeft className="w-5 h-5" />
-                        <span>Volver</span>
+                        <Share2 className="w-5 h-5" />
+                        <span className="hidden sm:inline">Compartir</span>
                     </button>
-                ) : null}
+                </div>
+
+                {/* ✅ Panel compartir (desplegable) */}
+                {showShare && (
+                    <div className="mb-8 bg-slate-900 border border-slate-700 rounded-xl p-3">
+                        <p className="font-semibold mb-2 text-gray-100 flex items-center gap-2 text-sm">
+                            <LinkIcon className="w-4 h-4" />
+                            Compartir vínculo (vista pública)
+                        </p>
+
+                        <p className="break-all text-gray-100 text-xs bg-slate-950 rounded-lg p-2 border border-slate-700">
+                            {publicUrl}
+                        </p>
+
+                        <div className="mt-3 flex gap-2">
+                            <button
+                                type="button"
+                                onClick={handleSharePublicUrl}
+                                className="flex-1 bg-white text-slate-900 rounded-xl py-2.5 hover:bg-gray-100 transition-colors"
+                            >
+                                {typeof navigator !== "undefined" && (navigator as any).share
+                                    ? "Compartir"
+                                    : "Copiar enlace"}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setShowShare(false)}
+                                className="px-4 bg-slate-800 text-gray-100 rounded-xl py-2.5 hover:bg-slate-700 transition-colors border border-slate-700"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+
+                        {copied && (
+                            <p className="mt-2 text-emerald-400 text-xs flex items-center gap-2">
+                                <Check className="w-4 h-4" /> Enlace copiado ✅
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {/* Header */}
                 <div className="flex flex-col items-center text-center mb-8 md:mb-12">
@@ -79,9 +178,7 @@ export function WishListDetail({
 
                     <div className="mb-4">
                         <p className="text-white">{creatorName || "Usuario"}</p>
-                        {creatorUsername ? (
-                            <p className="text-gray-400 text-sm">{creatorUsername}</p>
-                        ) : null}
+                        {creatorUsername ? <p className="text-gray-400 text-sm">{creatorUsername}</p> : null}
                     </div>
 
                     <h1 className="text-white mb-3 text-3xl md:text-4xl">{title}</h1>
@@ -96,17 +193,6 @@ export function WishListDetail({
                         <Heart className="w-4 h-4 fill-pink-500 text-pink-500" />
                         <span>{items.length} Deseos</span>
                     </div>
-
-                    {/* CTA público */}
-                    {loginCta ? (
-                        <button
-                            type="button"
-                            onClick={loginCta.onClick}
-                            className="mt-5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition"
-                        >
-                            {loginCta.label}
-                        </button>
-                    ) : null}
                 </div>
 
                 {/* Grid */}

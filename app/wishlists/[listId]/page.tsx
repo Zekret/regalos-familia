@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { WishListDetail } from "@/app/f/[code]/perfil/components/WishListDetail";
 import { WishItemModal } from "@/app/f/[code]/perfil/components/WishItemModal";
 import { useWishItemModal } from "@/app/f/[code]/perfil/hooks/useWishItemModal";
 import { useWishListData } from "@/app/f/[code]/perfil/hooks/useWishListData";
+import { FloatingLoginButton } from "@/app/f/[code]/perfil/components/FloatingLoginButton";
 
 type Session = {
     familyCode: string;
@@ -20,6 +21,17 @@ export default function PublicWishListPage() {
 
     const { meta, items, loading, error } = useWishListData(listId);
     const itemModal = useWishItemModal();
+
+    const [session, setSession] = useState<Session | null>(null);
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem("gf_session");
+            if (raw) setSession(JSON.parse(raw) as Session);
+        } catch {
+            setSession(null);
+        }
+    }, []);
 
     // ✅ si está logeado y es dueño -> redirigir a vista privada con sidebar
     useEffect(() => {
@@ -39,6 +51,12 @@ export default function PublicWishListPage() {
             // ignore
         }
     }, [meta, router]);
+
+    const showFloating = useMemo(() => {
+        if (!meta) return false;
+        const isOwner = session?.member?.id === meta.member_id && session?.familyCode === meta.family_code;
+        return !isOwner; // invitado o no dueño
+    }, [meta, session]);
 
     if (!listId) {
         return (
@@ -77,11 +95,6 @@ export default function PublicWishListPage() {
                 items={items}
                 showBack={false}
                 canAddItem={false}
-                loginCta={{
-                    label: "Ingresar",
-                    onClick: () => router.push(`/f/${meta.family_code}`),
-                }}
-                // ✅ Público: abrir modal informativo
                 onItemClick={(item) => itemModal.openModal(item)}
             />
 
@@ -89,8 +102,13 @@ export default function PublicWishListPage() {
                 <WishItemModal
                     item={itemModal.item as any}
                     onClose={itemModal.closeModal}
-                    canManage={false} // ✅ público: no editar/eliminar
+                    canManage={false}
                 />
+            ) : null}
+
+            {/* ✅ Botón flotante (invita a crear perfil / unirse / crear familia) */}
+            {showFloating ? (
+                <FloatingLoginButton familyCode={meta.family_code} familyName={meta.creatorName ?? "esta familia"} />
             ) : null}
         </>
     );

@@ -3,7 +3,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Eye, EyeOff } from "lucide-react";
+import { X, Eye, EyeOff, Share2, Link as LinkIcon, Check } from "lucide-react";
 
 type CreateFamilyResponse = {
     family: {
@@ -39,7 +39,11 @@ export default function CrearFamiliaPage() {
         null
     );
 
-    console.log(createdData)
+    // ✅ NUEVO: controlar despliegue de compartir
+    const [showShareSection, setShowShareSection] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    console.log(createdData);
 
     const handleOpen = () => {
         router.push(`/f/${createdData?.family.code}`);
@@ -90,6 +94,10 @@ export default function CrearFamiliaPage() {
 
             const data: CreateFamilyResponse = await res.json();
             setCreatedData(data);
+
+            // ✅ NUEVO: al crear, dejamos el compartir cerrado por defecto
+            setShowShareSection(false);
+            setCopied(false);
         } catch (err: any) {
             setError(err.message || "Ocurrió un error inesperado.");
         } finally {
@@ -104,6 +112,44 @@ export default function CrearFamiliaPage() {
 
     const goToJoinGroup = () => {
         router.push("/familia/ingresar");
+    };
+
+    // ✅ NUEVO: compartir / copiar
+    const handleShareLink = async () => {
+        if (!familyLink) return;
+
+        try {
+            // 1) Web Share API (ideal en mobile)
+            if (typeof navigator !== "undefined" && (navigator as any).share) {
+                await (navigator as any).share({
+                    title: "Mi grupo familiar",
+                    text: "Únete a mi grupo familiar usando este enlace:",
+                    url: familyLink,
+                });
+                return;
+            }
+
+            // 2) fallback: copiar al clipboard
+            if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(familyLink);
+            } else {
+                // 3) fallback extra viejo
+                const textarea = document.createElement("textarea");
+                textarea.value = familyLink;
+                textarea.style.position = "fixed";
+                textarea.style.left = "-9999px";
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                document.execCommand("copy");
+                document.body.removeChild(textarea);
+            }
+
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1800);
+        } catch (e) {
+            setError("No se pudo compartir/copiar el enlace. Intenta nuevamente.");
+        }
     };
 
     return (
@@ -135,14 +181,56 @@ export default function CrearFamiliaPage() {
                             </div>
 
                             <div className="space-y-4">
-                                <div className="bg-slate-900 rounded-xl p-3 text-sm">
-                                    <p className="font-semibold mb-1 text-gray-100">
-                                        Comparte este enlace con tu familia:
-                                    </p>
-                                    <p className="break-all text-gray-100 text-xs bg-slate-950 rounded-lg p-2 border border-slate-700">
-                                        {familyLink}
-                                    </p>
-                                </div>
+                                {/* ✅ NUEVO: Botón compartir que despliega sección */}
+                                <button
+                                    type="button"
+                                    onClick={() => setShowShareSection((v) => !v)}
+                                    className="w-full bg-slate-900 text-white border border-slate-700 rounded-xl py-3.5 hover:bg-slate-950 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Share2 className="w-5 h-5" />
+                                    {showShareSection ? "Ocultar enlace" : "Compartir enlace"}
+                                </button>
+
+                                {/* ✅ NUEVO: Sección desplegable */}
+                                {showShareSection && (
+                                    <div className="bg-slate-900 rounded-xl p-3 text-sm border border-slate-700">
+                                        <p className="font-semibold mb-2 text-gray-100 flex items-center gap-2">
+                                            <LinkIcon className="w-4 h-4" />
+                                            Comparte este enlace con tu familia:
+                                        </p>
+
+                                        <p className="break-all text-gray-100 text-xs bg-slate-950 rounded-lg p-2 border border-slate-700">
+                                            {familyLink}
+                                        </p>
+
+                                        <div className="mt-3 flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleShareLink}
+                                                className="flex-1 bg-white text-slate-900 rounded-xl py-2.5 hover:bg-gray-100 transition-colors"
+                                            >
+                                                {typeof navigator !== "undefined" &&
+                                                    (navigator as any).share
+                                                    ? "Compartir"
+                                                    : "Copiar enlace"}
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowShareSection(false)}
+                                                className="px-4 bg-slate-800 text-gray-100 rounded-xl py-2.5 hover:bg-slate-700 transition-colors border border-slate-700"
+                                            >
+                                                Cerrar
+                                            </button>
+                                        </div>
+
+                                        {copied && (
+                                            <p className="mt-2 text-emerald-400 text-xs flex items-center gap-2">
+                                                <Check className="w-4 h-4" /> Enlace copiado ✅
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
 
                                 <p className="text-gray-300 text-xs sm:text-sm">
                                     Cuando tus familiares usen este enlace, podrán crear su propio
@@ -209,14 +297,17 @@ export default function CrearFamiliaPage() {
                                     <div className="relative">
                                         <input
                                             type={showPin ? "text" : "password"}
-                                            placeholder="PIN de 4 dígitos"
+                                            placeholder="••••"
+                                            inputMode="numeric"
+                                            maxLength={4}
                                             value={pin}
                                             onChange={(e) => {
-                                                const value = e.target.value.replace(/\D/g, "").slice(0, 4);
+                                                const value = e.target.value
+                                                    .replace(/\D/g, "")
+                                                    .slice(0, 4);
                                                 setPin(value);
                                             }}
-                                            className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
-                                            maxLength={4}
+                                            className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 pr-12 text-sm tracking-[0.5em] text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                                             required
                                         />
                                         <button
@@ -241,14 +332,17 @@ export default function CrearFamiliaPage() {
                                     <div className="relative">
                                         <input
                                             type={showConfirmPin ? "text" : "password"}
-                                            placeholder="Confirmar PIN"
+                                            placeholder="••••"
+                                            inputMode="numeric"
+                                            maxLength={4}
                                             value={pinConfirm}
                                             onChange={(e) => {
-                                                const value = e.target.value.replace(/\D/g, "").slice(0, 4);
+                                                const value = e.target.value
+                                                    .replace(/\D/g, "")
+                                                    .slice(0, 4);
                                                 setPinConfirm(value);
                                             }}
-                                            className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
-                                            maxLength={4}
+                                            className="w-full bg-slate-900 text-white placeholder-gray-500 rounded-xl px-4 py-3.5 pr-12 text-sm tracking-[0.5em] text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                                             required
                                         />
                                         <button
@@ -281,7 +375,8 @@ export default function CrearFamiliaPage() {
                             </form>
                         </>
                     )}
-                    {/* Switch a cre */}
+
+                    {/* Switch a ingresar */}
                     <div className="mt-6 text-center">
                         <p className="text-gray-400 text-sm">
                             ¿Ya estas en un grupo familiar?{" "}

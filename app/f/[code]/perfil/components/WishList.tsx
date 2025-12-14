@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Heart, Plus, X, LogIn } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Heart, Plus, X, LogIn, Share2, Link as LinkIcon, Check } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { ImageWithFallback } from "./ImageWithFallback";
 import { UserProfile } from "./UserProfile";
 
@@ -30,9 +30,6 @@ interface WishListProps {
     avatar?: string;
   };
   canCreate?: boolean;
-
-  // ✅ NUEVO (público)
-  showLoginCTA?: boolean;
   onLogin?: () => void;
 }
 
@@ -45,14 +42,19 @@ const FALLBACK_IMAGES = [
   "https://images.unsplash.com/photo-1702374114954-9029a74a8add?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
 ];
 
+function buildPublicUrlFromPathname(origin: string, memberId: string) {
+  return `${origin}/u/${memberId}/wishlists`;
+}
+
+
 export function WishList({
   memberId,
   owner,
   canCreate = false,
-  showLoginCTA = false,
   onLogin,
 }: WishListProps) {
   const router = useRouter();
+  const pathname = usePathname();
 
   const [wishBoards, setWishBoards] = useState<WishBoard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +68,51 @@ export function WishList({
   const [createError, setCreateError] = useState<string | null>(null);
 
   const canSubmit = useMemo(() => title.trim().length > 0 && !creating, [title, creating]);
+
+  // ✅ Compartir
+  const [showShare, setShowShare] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const publicUrl =
+    typeof window !== "undefined"
+      ? buildPublicUrlFromPathname(window.location.origin, memberId)
+      : "";
+
+  async function handleSharePublicUrl() {
+    if (!publicUrl) return;
+
+    try {
+      // Web Share API (mobile)
+      if (typeof navigator !== "undefined" && (navigator as any).share) {
+        await (navigator as any).share({
+          title: "Lista de deseos",
+          text: `Mira las listas de deseos de ${owner?.name || "mi perfil"}`,
+          url: publicUrl,
+        });
+        return;
+      }
+
+      // Clipboard
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(publicUrl);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = publicUrl;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setError("No se pudo compartir/copiar el enlace. Intenta nuevamente.");
+    }
+  }
 
   async function fetchLists() {
     try {
@@ -156,23 +203,25 @@ export function WishList({
             <div>
               <h2 className="text-white">Lista de deseos</h2>
               <p className="text-gray-400 mt-1 text-sm">
-                {loading ? "Cargando..." : `${wishBoards.length} lista${wishBoards.length === 1 ? "" : "s"} creada${wishBoards.length === 1 ? "" : "s"}`}
+                {loading
+                  ? "Cargando..."
+                  : `${wishBoards.length} lista${wishBoards.length === 1 ? "" : "s"} creada${wishBoards.length === 1 ? "" : "s"
+                  }`}
               </p>
             </div>
           </div>
 
           {/* Acciones derecha */}
           <div className="flex gap-2 w-full sm:w-auto">
-            {showLoginCTA && (
-              <button
-                type="button"
-                onClick={onLogin}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white/5 text-white rounded-lg hover:bg-white/10 transition-colors"
-              >
-                <LogIn className="w-5 h-5" />
-                Ingresar
-              </button>
-            )}
+            {/* ✅ Botón compartir (design) */}
+            <button
+              type="button"
+              onClick={() => setShowShare((v) => !v)}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              <Share2 className="w-5 h-5" />
+              <span className="hidden sm:inline">Compartir</span>
+            </button>
 
             {canCreate && (
               <button
@@ -185,6 +234,46 @@ export function WishList({
             )}
           </div>
         </div>
+
+        {/* ✅ Panel compartir (desplegable) */}
+        {showShare && (
+          <div className="mb-6 bg-slate-900 border border-slate-700 rounded-xl p-3">
+            <p className="font-semibold mb-2 text-gray-100 flex items-center gap-2 text-sm">
+              <LinkIcon className="w-4 h-4" />
+              Compartir vínculo (vista pública)
+            </p>
+
+            <p className="break-all text-gray-100 text-xs bg-slate-950 rounded-lg p-2 border border-slate-700">
+              {publicUrl}
+            </p>
+
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={handleSharePublicUrl}
+                className="flex-1 bg-white text-slate-900 rounded-xl py-2.5 hover:bg-gray-100 transition-colors"
+              >
+                {typeof navigator !== "undefined" && (navigator as any).share
+                  ? "Compartir"
+                  : "Copiar enlace"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowShare(false)}
+                className="px-4 bg-slate-800 text-gray-100 rounded-xl py-2.5 hover:bg-slate-700 transition-colors border border-slate-700"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            {copied && (
+              <p className="mt-2 text-emerald-400 text-xs flex items-center gap-2">
+                <Check className="w-4 h-4" /> Enlace copiado ✅
+              </p>
+            )}
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 bg-red-950/40 border border-red-700 text-red-200 text-sm px-4 py-3 rounded-lg">
