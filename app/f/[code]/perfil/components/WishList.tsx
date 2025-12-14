@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Heart, Plus, X, LogIn, Share2, Link as LinkIcon, Check } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { Heart, Plus, X, Share2, Link as LinkIcon, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { ImageWithFallback } from "./ImageWithFallback";
 import { UserProfile } from "./UserProfile";
 
@@ -42,19 +42,12 @@ const FALLBACK_IMAGES = [
   "https://images.unsplash.com/photo-1702374114954-9029a74a8add?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
 ];
 
-function buildPublicUrlFromPathname(origin: string, memberId: string) {
+function buildPublicUserWishlistsUrl(origin: string, memberId: string) {
   return `${origin}/u/${memberId}/wishlists`;
 }
 
-
-export function WishList({
-  memberId,
-  owner,
-  canCreate = false,
-  onLogin,
-}: WishListProps) {
+export function WishList({ memberId, owner, canCreate = false }: WishListProps) {
   const router = useRouter();
-  const pathname = usePathname();
 
   const [wishBoards, setWishBoards] = useState<WishBoard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,15 +60,18 @@ export function WishList({
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const canSubmit = useMemo(() => title.trim().length > 0 && !creating, [title, creating]);
+  const canSubmit = useMemo(
+    () => title.trim().length > 0 && !creating,
+    [title, creating]
+  );
 
-  // ✅ Compartir
-  const [showShare, setShowShare] = useState(false);
+  // ✅ Compartir (FAB + panel)
+  const [isShareOpen, setIsShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const publicUrl =
     typeof window !== "undefined"
-      ? buildPublicUrlFromPathname(window.location.origin, memberId)
+      ? buildPublicUserWishlistsUrl(window.location.origin, memberId)
       : "";
 
   async function handleSharePublicUrl() {
@@ -92,7 +88,7 @@ export function WishList({
         return;
       }
 
-      // Clipboard
+      // Clipboard fallback
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(publicUrl);
       } else {
@@ -122,7 +118,8 @@ export function WishList({
       const res = await fetch(`/api/members/${memberId}/lists`);
       const data = await res.json().catch(() => null);
 
-      if (!res.ok) throw new Error(data?.message || "No se pudieron cargar las listas.");
+      if (!res.ok)
+        throw new Error(data?.message || "No se pudieron cargar las listas.");
 
       const lists: ApiList[] = data?.lists ?? [];
 
@@ -190,6 +187,70 @@ export function WishList({
 
   return (
     <div className="p-4 pb-24 md:pb-8 md:p-8">
+      {/* ✅ FAB Compartir (top-right, siempre visible) */}
+      <button
+        type="button"
+        onClick={() => setIsShareOpen(true)}
+        className="fixed top-6 right-6 md:top-8 md:right-8 flex items-center gap-3 px-5 py-3
+                   bg-gray-800 text-white rounded-full shadow-lg hover:bg-gray-700
+                   transition-all hover:scale-105 z-50"
+      >
+        <Share2 className="w-5 h-5" />
+        <span className="hidden sm:inline font-medium">Compartir</span>
+      </button>
+
+      {/* ✅ Panel compartir */}
+      {isShareOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-end p-4">
+          <button
+            type="button"
+            aria-label="Cerrar"
+            onClick={() => setIsShareOpen(false)}
+            className="absolute inset-0 bg-black/60"
+          />
+
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative mt-16 w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4"
+          >
+            <p className="text-white font-semibold flex items-center gap-2 mb-2">
+              <LinkIcon className="w-4 h-4" />
+              Compartir vínculo
+            </p>
+
+            <p className="break-all text-xs text-gray-100 bg-slate-950 rounded-lg p-2 border border-slate-700">
+              {publicUrl}
+            </p>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={handleSharePublicUrl}
+                className="flex-1 bg-white text-slate-900 rounded-xl py-2.5 hover:bg-gray-100 transition-colors"
+              >
+                {typeof navigator !== "undefined" && (navigator as any).share
+                  ? "Compartir"
+                  : "Copiar enlace"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsShareOpen(false)}
+                className="px-4 bg-slate-800 text-gray-100 rounded-xl py-2.5 hover:bg-slate-700 transition-colors border border-slate-700"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            {copied && (
+              <p className="mt-2 text-emerald-400 text-xs flex items-center gap-2">
+                <Check className="w-4 h-4" /> Enlace copiado ✅
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto">
         {/* Owner */}
         <UserProfile name={owner.name} />
@@ -212,68 +273,18 @@ export function WishList({
           </div>
 
           {/* Acciones derecha */}
-          <div className="flex gap-2 w-full sm:w-auto">
-            {/* ✅ Botón compartir (design) */}
-            <button
-              type="button"
-              onClick={() => setShowShare((v) => !v)}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              <Share2 className="w-5 h-5" />
-              <span className="hidden sm:inline">Compartir</span>
-            </button>
-
-            {canCreate && (
+          {canCreate && (
+            <div className="flex gap-2 w-full sm:w-auto">
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors"
               >
                 <Plus className="w-5 h-5" />
                 Crear lista
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* ✅ Panel compartir (desplegable) */}
-        {showShare && (
-          <div className="mb-6 bg-slate-900 border border-slate-700 rounded-xl p-3">
-            <p className="font-semibold mb-2 text-gray-100 flex items-center gap-2 text-sm">
-              <LinkIcon className="w-4 h-4" />
-              Compartir vínculo (vista pública)
-            </p>
-
-            <p className="break-all text-gray-100 text-xs bg-slate-950 rounded-lg p-2 border border-slate-700">
-              {publicUrl}
-            </p>
-
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={handleSharePublicUrl}
-                className="flex-1 bg-white text-slate-900 rounded-xl py-2.5 hover:bg-gray-100 transition-colors"
-              >
-                {typeof navigator !== "undefined" && (navigator as any).share
-                  ? "Compartir"
-                  : "Copiar enlace"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowShare(false)}
-                className="px-4 bg-slate-800 text-gray-100 rounded-xl py-2.5 hover:bg-slate-700 transition-colors border border-slate-700"
-              >
-                Cerrar
-              </button>
             </div>
-
-            {copied && (
-              <p className="mt-2 text-emerald-400 text-xs flex items-center gap-2">
-                <Check className="w-4 h-4" /> Enlace copiado ✅
-              </p>
-            )}
-          </div>
-        )}
+          )}
+        </div>
 
         {error && (
           <div className="mb-4 bg-red-950/40 border border-red-700 text-red-200 text-sm px-4 py-3 rounded-lg">
@@ -292,7 +303,7 @@ export function WishList({
               <div
                 key={board.id}
                 className="group cursor-pointer"
-                onClick={() => router.push(`/wishlists/${board.id}`)} // ✅ público/detail
+                onClick={() => router.push(`/wishlists/${board.id}`)}
               >
                 <div className="relative aspect-[4/3] rounded-xl overflow-hidden mb-2 bg-gray-900">
                   <ImageWithFallback
@@ -303,10 +314,15 @@ export function WishList({
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                 </div>
 
-                <h3 className="text-white mb-1 leading-tight line-clamp-2">{board.title}</h3>
+                <h3 className="text-white mb-1 leading-tight line-clamp-2">
+                  {board.title}
+                </h3>
 
                 <div className="flex items-center gap-2 text-gray-400">
-                  <Heart className={`w-3 h-3 ${board.liked ? "fill-pink-500 text-pink-500" : ""}`} />
+                  <Heart
+                    className={`w-3 h-3 ${board.liked ? "fill-pink-500 text-pink-500" : ""
+                      }`}
+                  />
                   <span className="text-sm">{board.itemsCount} Deseos</span>
                 </div>
               </div>
