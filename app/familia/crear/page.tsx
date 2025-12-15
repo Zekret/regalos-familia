@@ -39,14 +39,25 @@ export default function CrearFamiliaPage() {
         null
     );
 
-    // ✅ NUEVO: controlar despliegue de compartir
     const [showShareSection, setShowShareSection] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    console.log(createdData);
-
     const handleOpen = () => {
-        router.push(`/f/${createdData?.family.code}`);
+        const code = createdData?.family?.code;
+        const memberId = createdData?.member?.id;
+
+        // ✅ Guard rail: evita navegar a rutas incompletas
+        if (!code || !memberId) {
+            console.log("[handleOpen] createdData =", createdData);
+            setError("No pude abrir tu perfil porque faltan datos (code o memberId).");
+            return;
+        }
+
+        router.push(
+            `/f/${encodeURIComponent(code)}/perfil/${encodeURIComponent(
+                memberId
+            )}?section=wishes`
+        );
     };
 
     const handleClose = () => {
@@ -92,10 +103,38 @@ export default function CrearFamiliaPage() {
                 throw new Error(data?.message || "No se pudo crear la familia.");
             }
 
-            const data: CreateFamilyResponse = await res.json();
-            setCreatedData(data);
+            // ✅ Leemos el response "raw" y lo dejamos en consola para debug
+            const raw = await res.json();
+            console.log("[CREATE FAMILY] raw response =", raw);
 
-            // ✅ NUEVO: al crear, dejamos el compartir cerrado por defecto
+            // ✅ Normalizamos por si el backend trae memberId / member_id, etc.
+            const normalized: CreateFamilyResponse = {
+                family: raw.family,
+                member: {
+                    id: raw.member?.id ?? raw.member_id ?? raw.memberId ?? "",
+                    name: raw.member?.name ?? raw.memberName ?? "",
+                    role: raw.member?.role ?? raw.role ?? "owner",
+                },
+                list: raw.list,
+            };
+
+            // ✅ Guard rail: si falta algo clave, mostramos error y no dejamos estado roto
+            if (!normalized.family?.code) {
+                console.log("[CREATE FAMILY] normalized =", normalized);
+                throw new Error(
+                    "La familia se creó pero no recibí el código (family.code). Revisa el response del backend."
+                );
+            }
+            if (!normalized.member?.id) {
+                console.log("[CREATE FAMILY] normalized =", normalized);
+                throw new Error(
+                    "La familia se creó pero no recibí el id del miembro (member.id). Revisa el response del backend."
+                );
+            }
+
+            setCreatedData(normalized);
+
+            // ✅ al crear, dejamos el compartir cerrado por defecto
             setShowShareSection(false);
             setCopied(false);
         } catch (err: any) {
@@ -114,7 +153,7 @@ export default function CrearFamiliaPage() {
         router.push("/familia/ingresar");
     };
 
-    // ✅ NUEVO: compartir / copiar
+    // ✅ compartir / copiar
     const handleShareLink = async () => {
         if (!familyLink) return;
 
@@ -152,6 +191,8 @@ export default function CrearFamiliaPage() {
         }
     };
 
+    const canOpenProfile = !!createdData?.family?.code && !!createdData?.member?.id;
+
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
             <div className="bg-slate-800 rounded-2xl w-full max-w-md relative shadow-2xl">
@@ -180,8 +221,14 @@ export default function CrearFamiliaPage() {
                                 </p>
                             </div>
 
+                            {error && (
+                                <p className="text-sm text-red-400 bg-red-950/40 border border-red-700 rounded-lg px-3 py-2 mb-3">
+                                    {error}
+                                </p>
+                            )}
+
                             <div className="space-y-4">
-                                {/* ✅ NUEVO: Botón compartir que despliega sección */}
+                                {/* Botón compartir que despliega sección */}
                                 <button
                                     type="button"
                                     onClick={() => setShowShareSection((v) => !v)}
@@ -191,7 +238,7 @@ export default function CrearFamiliaPage() {
                                     {showShareSection ? "Ocultar enlace" : "Compartir enlace"}
                                 </button>
 
-                                {/* ✅ NUEVO: Sección desplegable */}
+                                {/* Sección desplegable */}
                                 {showShareSection && (
                                     <div className="bg-slate-900 rounded-xl p-3 text-sm border border-slate-700">
                                         <p className="font-semibold mb-2 text-gray-100 flex items-center gap-2">
@@ -239,10 +286,12 @@ export default function CrearFamiliaPage() {
 
                                 <button
                                     onClick={handleOpen}
-                                    className="w-full bg-white text-slate-900 rounded-xl py-3.5 hover:bg-gray-100 transition-colors mt-2"
+                                    disabled={!canOpenProfile}
+                                    className="w-full bg-white text-slate-900 rounded-xl py-3.5 hover:bg-gray-100 transition-colors mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
                                     Ingresar a la familia
                                 </button>
+
                                 <button
                                     onClick={handleClose}
                                     className="w-full bg-white text-slate-900 rounded-xl py-3.5 hover:bg-gray-100 transition-colors mt-2"
