@@ -31,10 +31,7 @@ export async function GET(req: NextRequest) {
     const pageSizeParam = searchParams.get("pageSize");
 
     const page = Math.max(1, Number(pageParam) || 1);
-    const pageSize = Math.min(
-      50, // límite “sano”
-      Math.max(1, Number(pageSizeParam) || 20)
-    );
+    const pageSize = Math.min(50, Math.max(1, Number(pageSizeParam) || 20));
 
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
@@ -85,10 +82,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-      return NextResponse.json(
-        { message: "PIN inválido." },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "PIN inválido." }, { status: 400 });
     }
 
     const code = generateFamilyCode();
@@ -114,7 +108,7 @@ export async function POST(req: NextRequest) {
     // 2) Hash del PIN
     const pin_hash = await bcrypt.hash(pin, 10);
 
-    // 3) Crear miembro
+    // 3) Crear miembro (usuario)
     const { data: member, error: memError } = await supabaseServer
       .from("members")
       .insert({
@@ -133,25 +127,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4) Crear lista de ese miembro
-    const { data: list, error: listError } = await supabaseServer
-      .from("lists")
-      .insert({
-        family_id: family.id,
-        member_id: member.id,
-        title: `Lista de regalos de ${memberName}`,
-      })
-      .select("*")
-      .single();
-
-    if (listError || !list) {
-      console.error(listError);
-      return NextResponse.json(
-        { message: "Error al crear tu lista." },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json(
       {
         family: {
@@ -163,10 +138,6 @@ export async function POST(req: NextRequest) {
           id: member.id,
           name: member.name,
           role: "admin",
-        },
-        list: {
-          id: list.id,
-          title: list.title,
         },
       },
       { status: 201 }
