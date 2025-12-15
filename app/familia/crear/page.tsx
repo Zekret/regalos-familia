@@ -5,6 +5,11 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Eye, EyeOff, Share2, Link as LinkIcon, Check } from "lucide-react";
 
+type MemberList = {
+    id: string;
+    title: string;
+};
+
 type CreateFamilyResponse = {
     family: {
         id: string;
@@ -20,6 +25,8 @@ type CreateFamilyResponse = {
         id: string;
         title: string;
     };
+    token?: string;
+    lists?: MemberList[];
 };
 
 export default function CrearFamiliaPage() {
@@ -42,16 +49,33 @@ export default function CrearFamiliaPage() {
     const [showShareSection, setShowShareSection] = useState(false);
     const [copied, setCopied] = useState(false);
 
+    const persistSession = (data: CreateFamilyResponse) => {
+        if (typeof window === "undefined") return;
+
+        const session = {
+            familyCode: data.family.code,
+            member: { id: data.member.id, name: data.member.name },
+            token: data.token ?? "", // si tu backend no lo entrega, queda ""
+            lists:
+                data.lists && data.lists.length > 0
+                    ? data.lists
+                    : [{ id: data.list.id, title: data.list.title }],
+        };
+
+        localStorage.setItem("gf_session", JSON.stringify(session));
+    };
+
     const handleOpen = () => {
         const code = createdData?.family?.code;
         const memberId = createdData?.member?.id;
 
-        // ✅ Guard rail: evita navegar a rutas incompletas
         if (!code || !memberId) {
             console.log("[handleOpen] createdData =", createdData);
             setError("No pude abrir tu perfil porque faltan datos (code o memberId).");
             return;
         }
+
+        persistSession(createdData);
 
         router.push(
             `/f/${encodeURIComponent(code)}/perfil/${encodeURIComponent(
@@ -88,9 +112,7 @@ export default function CrearFamiliaPage() {
         try {
             const res = await fetch("/api/families", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     familyName: familyName.trim(),
                     memberName: memberName.trim(),
@@ -103,11 +125,9 @@ export default function CrearFamiliaPage() {
                 throw new Error(data?.message || "No se pudo crear la familia.");
             }
 
-            // ✅ Leemos el response "raw" y lo dejamos en consola para debug
             const raw = await res.json();
             console.log("[CREATE FAMILY] raw response =", raw);
 
-            // ✅ Normalizamos por si el backend trae memberId / member_id, etc.
             const normalized: CreateFamilyResponse = {
                 family: raw.family,
                 member: {
@@ -116,15 +136,17 @@ export default function CrearFamiliaPage() {
                     role: raw.member?.role ?? raw.role ?? "owner",
                 },
                 list: raw.list,
+                token: raw.token,
+                lists: raw.lists,
             };
 
-            // ✅ Guard rail: si falta algo clave, mostramos error y no dejamos estado roto
             if (!normalized.family?.code) {
                 console.log("[CREATE FAMILY] normalized =", normalized);
                 throw new Error(
                     "La familia se creó pero no recibí el código (family.code). Revisa el response del backend."
                 );
             }
+
             if (!normalized.member?.id) {
                 console.log("[CREATE FAMILY] normalized =", normalized);
                 throw new Error(
@@ -134,7 +156,8 @@ export default function CrearFamiliaPage() {
 
             setCreatedData(normalized);
 
-            // ✅ al crear, dejamos el compartir cerrado por defecto
+            persistSession(normalized);
+
             setShowShareSection(false);
             setCopied(false);
         } catch (err: any) {
@@ -153,12 +176,10 @@ export default function CrearFamiliaPage() {
         router.push("/familia/ingresar");
     };
 
-    // ✅ compartir / copiar
     const handleShareLink = async () => {
         if (!familyLink) return;
 
         try {
-            // 1) Web Share API (ideal en mobile)
             if (typeof navigator !== "undefined" && (navigator as any).share) {
                 await (navigator as any).share({
                     title: "Mi grupo familiar",
@@ -168,11 +189,9 @@ export default function CrearFamiliaPage() {
                 return;
             }
 
-            // 2) fallback: copiar al clipboard
             if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(familyLink);
             } else {
-                // 3) fallback extra viejo
                 const textarea = document.createElement("textarea");
                 textarea.value = familyLink;
                 textarea.style.position = "fixed";
@@ -191,12 +210,12 @@ export default function CrearFamiliaPage() {
         }
     };
 
-    const canOpenProfile = !!createdData?.family?.code && !!createdData?.member?.id;
+    const canOpenProfile =
+        !!createdData?.family?.code && !!createdData?.member?.id;
 
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
             <div className="bg-slate-800 rounded-2xl w-full max-w-md relative shadow-2xl">
-                {/* Botón cerrar */}
                 <button
                     onClick={handleClose}
                     className="absolute top-4 right-4 w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center transition-colors"
@@ -206,7 +225,6 @@ export default function CrearFamiliaPage() {
 
                 <div className="p-6 sm:p-8">
                     {createdData ? (
-                        // --- Vista de éxito ---
                         <>
                             <div className="mb-6">
                                 <h2 className="text-white text-2xl sm:text-3xl mb-2">
@@ -228,7 +246,6 @@ export default function CrearFamiliaPage() {
                             )}
 
                             <div className="space-y-4">
-                                {/* Botón compartir que despliega sección */}
                                 <button
                                     type="button"
                                     onClick={() => setShowShareSection((v) => !v)}
@@ -238,7 +255,6 @@ export default function CrearFamiliaPage() {
                                     {showShareSection ? "Ocultar enlace" : "Compartir enlace"}
                                 </button>
 
-                                {/* Sección desplegable */}
                                 {showShareSection && (
                                     <div className="bg-slate-900 rounded-xl p-3 text-sm border border-slate-700">
                                         <p className="font-semibold mb-2 text-gray-100 flex items-center gap-2">
@@ -301,7 +317,6 @@ export default function CrearFamiliaPage() {
                             </div>
                         </>
                     ) : (
-                        // --- Formulario ---
                         <>
                             <div className="mb-6">
                                 <h2 className="text-white text-2xl sm:text-3xl mb-2">
@@ -313,7 +328,6 @@ export default function CrearFamiliaPage() {
                             </div>
 
                             <form onSubmit={handleSubmit} className="space-y-4">
-                                {/* Nombre de la familia */}
                                 <div>
                                     <input
                                         type="text"
@@ -325,7 +339,6 @@ export default function CrearFamiliaPage() {
                                     />
                                 </div>
 
-                                {/* Tu nombre */}
                                 <div>
                                     <input
                                         type="text"
@@ -341,7 +354,6 @@ export default function CrearFamiliaPage() {
                                     </p>
                                 </div>
 
-                                {/* PIN */}
                                 <div>
                                     <div className="relative">
                                         <input
@@ -376,7 +388,6 @@ export default function CrearFamiliaPage() {
                                     </p>
                                 </div>
 
-                                {/* Confirmar PIN */}
                                 <div>
                                     <div className="relative">
                                         <input
@@ -425,7 +436,6 @@ export default function CrearFamiliaPage() {
                         </>
                     )}
 
-                    {/* Switch a ingresar */}
                     <div className="mt-6 text-center">
                         <p className="text-gray-400 text-sm">
                             ¿Ya estas en un grupo familiar?{" "}
