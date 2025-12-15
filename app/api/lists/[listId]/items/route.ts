@@ -11,6 +11,7 @@ import {
 type UiItem = {
   id: string;
   name: string;
+  notes: string;
   imageUrl: string; // NUNCA vacío (usa default)
   price: string;
   url?: string;
@@ -44,6 +45,7 @@ function mapDbItemToUi(row: any): UiItem {
   return {
     id: row.id,
     name: row.name ?? "",
+    notes: row.notes ?? "",
     imageUrl: pickPrimaryImageUrl(row),
     price: formatCLP(row.price),
     url: row.url ?? undefined,
@@ -63,7 +65,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseServer
       .from("items")
-      .select("id, name, url, price, created_at, image_urls")
+      .select("*")
       .eq("list_id", listId)
       .order("created_at", { ascending: true });
 
