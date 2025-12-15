@@ -113,7 +113,7 @@ export default function NuevoMiembroPage() {
             }
 
             // 4) Redirigir directo al perfil del nuevo usuario
-            router.replace(`/f/${code}/perfil/${created.member.id}?section=family`);
+            router.replace(`/f/${code}/perfil/${created.member.id}?section=wishes`);
         } catch (err: any) {
             setError(err.message || "Ocurrió un error inesperado.");
         } finally {

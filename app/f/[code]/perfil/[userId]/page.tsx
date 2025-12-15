@@ -38,7 +38,7 @@ export default function PerfilPage() {
     // ✅ Default: si no viene ?section= -> family
     useEffect(() => {
         const section = searchParams.get("section");
-        if (!section) router.replace(`${pathname}?section=family`);
+        if (!section) router.replace(`${pathname}?section=wishes`);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pathname, searchParams]);
 

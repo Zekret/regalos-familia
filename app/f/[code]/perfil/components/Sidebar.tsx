@@ -49,20 +49,7 @@ export function Sidebar({
 
             <nav className="flex-1 p-4">
                 <ul className="space-y-2">
-                    <li>
-                        <Link
-                            href={family}
-                            onClick={preventIfInvalid(familyHref)}
-                            aria-disabled={!familyHref?.trim()}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === "family"
-                                ? "bg-gray-800 text-white"
-                                : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
-                                }`}
-                        >
-                            <Users className="w-5 h-5" />
-                            <span className="text-sm">Lista de familiares</span>
-                        </Link>
-                    </li>
+
 
                     <li>
                         <Link
@@ -76,6 +63,21 @@ export function Sidebar({
                         >
                             <Heart className="w-5 h-5" />
                             <span className="text-sm">Lista de deseos</span>
+                        </Link>
+                    </li>
+
+                    <li>
+                        <Link
+                            href={family}
+                            onClick={preventIfInvalid(familyHref)}
+                            aria-disabled={!familyHref?.trim()}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === "family"
+                                ? "bg-gray-800 text-white"
+                                : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
+                                }`}
+                        >
+                            <Users className="w-5 h-5" />
+                            <span className="text-sm">Lista de familiares</span>
                         </Link>
                     </li>
                 </ul>

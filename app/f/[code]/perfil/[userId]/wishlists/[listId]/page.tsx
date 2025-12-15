@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Sidebar } from "@/app/f/[code]/perfil/components/Sidebar";
 import { MobileNav } from "@/app/f/[code]/perfil/components/MobileNav";
@@ -12,14 +12,16 @@ import { WishItemModal } from "@/app/f/[code]/perfil/components/WishItemModal";
 import { useWishItemModal } from "@/app/f/[code]/perfil/hooks/useWishItemModal";
 import { useWishListData } from "@/app/f/[code]/perfil/hooks/useWishListData";
 
+import {
+  EditWishItemModal,
+  type EditWishItemPayload,
+} from "@/app/f/[code]/perfil/components/EditWishItemModal";
+
 type Session = {
   familyCode: string;
   member: { id: string; name: string };
   token: string;
 };
-
-const PLACEHOLDER_IMG =
-  "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=900";
 
 function formatCLP(value: number) {
   try {
@@ -42,17 +44,36 @@ function safeNumber(value: unknown): number {
 export default function InternalWishListDetailPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const { code, userId, listId } = useParams<{ code: string; userId: string; listId: string }>();
+  const searchParams = useSearchParams();
+  const { code, userId, listId } = useParams<{
+    code: string;
+    userId: string;
+    listId: string;
+  }>();
 
   const [session, setSession] = useState<Session | null>(null);
 
   const { meta, items, setItems, loading, error } = useWishListData(listId);
   const itemModal = useWishItemModal();
 
+  // ✅ modal editar
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<any | null>(null);
+
   // ✅ Sidebar/Nav en modo "wishes"
   const activeSection = useMemo(() => {
     return pathname.includes("/wishlists") ? "wishes" : "family";
   }, [pathname]);
+
+  const familyHref = useMemo(() => `${pathname}?section=family`, [pathname]);
+  const wishesHref = useMemo(() => `${pathname}?section=wishes`, [pathname]);
+
+  // ✅ Default: si no viene ?section= -> family
+  useEffect(() => {
+    const section = searchParams.get("section");
+    if (!section) router.replace(`${pathname}?section=wishes`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, searchParams]);
 
   // ✅ validar sesión
   useEffect(() => {
@@ -84,7 +105,7 @@ export default function InternalWishListDetailPage() {
   async function createItem(formData: FormData) {
     const res = await fetch(`/api/lists/${listId}/items`, {
       method: "POST",
-      body: formData, // ✅ CLAVE
+      body: formData,
     });
 
     const data = await res.json().catch(() => null);
@@ -101,7 +122,6 @@ export default function InternalWishListDetailPage() {
         name: created.name,
         url: created.url,
         liked: true,
-        // ✅ ahora SIEMPRE viene desde backend (storage o default)
         imageUrl: created.imageUrl,
         notes: created.notes ?? "",
         priceRaw: raw,
@@ -111,6 +131,50 @@ export default function InternalWishListDetailPage() {
     ]);
   }
 
+  // ✅ EDITAR (PATCH)
+  async function editItem(itemId: string, payload: EditWishItemPayload) {
+    const res = await fetch(`/api/lists/${listId}/items/${itemId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || "No se pudo guardar.");
+
+    // si tu endpoint retorna el item actualizado, lo usamos;
+    // si no, caemos al payload + valores previos.
+    const updated = data?.item;
+
+    const raw = safeNumber(updated?.price ?? payload.price);
+
+    setItems((prev) =>
+      prev.map((it: any) => {
+        if (it.id !== itemId) return it;
+
+        return {
+          ...it,
+          name: updated?.name ?? payload.name,
+          notes: updated?.notes ?? payload.notes ?? "",
+          url: updated?.url ?? payload.url ?? "",
+          imageUrl: updated?.imageUrl ?? it.imageUrl,
+          priceRaw: raw,
+          price: formatCLP(raw),
+        };
+      })
+    );
+  }
+
+  async function deleteItem(itemId: string) {
+    const res = await fetch(`/api/lists/${listId}/items/${itemId}`, {
+      method: "DELETE",
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || "No se pudo eliminar.");
+
+    setItems((prev) => prev.filter((it: any) => it.id !== itemId));
+  }
 
   const handleLogout = () => {
     localStorage.removeItem("gf_session");
@@ -139,9 +203,8 @@ export default function InternalWishListDetailPage() {
     <div className="flex h-screen bg-black">
       <Sidebar
         activeSection={activeSection}
-        onSectionChange={() => {
-          router.push(`/f/${code}/perfil/${userId}?section=family`);
-        }}
+        familyHref={familyHref}
+        wishesHref={wishesHref}
         memberName={session.member.name}
         familyCode={session.familyCode}
         onLogout={handleLogout}
@@ -163,19 +226,61 @@ export default function InternalWishListDetailPage() {
             onItemClick={(item) => itemModal.openModal(item)}
           />
 
-          {/* ✅ Privado: modal con gestión */}
+          {/* ✅ Privado: modal informativo/gestión */}
           {itemModal.open && itemModal.item ? (
             <WishItemModal
+              isOpen={itemModal.open}
               item={itemModal.item as any}
               onClose={itemModal.closeModal}
               canManage={true}
-              // ⚠️ Aquí conecta tus handlers reales de editar/eliminar
-              // (si ya tienes otro modal de edición/borrado, dispara eso desde acá)
               onEdit={() => {
-                // TODO: conectar edición real
+                setEditingItem(itemModal.item);
+                setEditOpen(true);
               }}
-              onDelete={() => {
-                // TODO: conectar borrado real
+              onDelete={async () => {
+                const it: any = itemModal.item;
+                if (!it?.id) return;
+
+                const ok = window.confirm("¿Eliminar este deseo? Esta acción no se puede deshacer.");
+                if (!ok) return;
+
+                try {
+                  await deleteItem(it.id);
+                  itemModal.closeModal();
+                } catch (e: any) {
+                  alert(e?.message || "No se pudo eliminar.");
+                }
+              }}
+            />
+          ) : null}
+
+          {/* ✅ Edit modal */}
+          {editOpen && editingItem ? (
+            <EditWishItemModal
+              isOpen={editOpen}
+              item={editingItem}
+              onClose={() => {
+                setEditOpen(false);
+                setEditingItem(null);
+              }}
+              onSubmit={async (payload) => {
+                const it: any = editingItem;
+                if (!it?.id) return;
+
+                await editItem(it.id, payload);
+
+                // refrescar item en el modal informativo si sigue abierto
+                if (itemModal.open && itemModal.item?.id === it.id) {
+                  const raw = safeNumber(payload.price);
+                  itemModal.openModal({
+                    ...itemModal.item,
+                    name: payload.name,
+                    notes: payload.notes ?? "",
+                    url: payload.url ?? "",
+                    priceRaw: raw,
+                    price: formatCLP(raw),
+                  } as any);
+                }
               }}
             />
           ) : null}
@@ -184,9 +289,8 @@ export default function InternalWishListDetailPage() {
 
       <MobileNav
         activeSection={activeSection}
-        onSectionChange={() => {
-          router.push(`/f/${code}/perfil/${userId}?section=wishes`);
-        }}
+        familyHref={familyHref}
+        wishesHref={wishesHref}
       />
     </div>
   );

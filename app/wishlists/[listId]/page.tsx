@@ -100,6 +100,7 @@ export default function PublicWishListPage() {
 
             {itemModal.open && itemModal.item ? (
                 <WishItemModal
+                    isOpen={itemModal.open}
                     item={itemModal.item as any}
                     onClose={itemModal.closeModal}
                     canManage={false}

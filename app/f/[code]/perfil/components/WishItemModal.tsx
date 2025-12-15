@@ -3,8 +3,10 @@
 import { X, ExternalLink, Trash2, Edit2 } from "lucide-react";
 import { ImageWithFallback } from "./ImageWithFallback";
 import { WishItem } from "./WishListDetail";
+import { useEffect } from "react";
 
 interface Props {
+    isOpen: boolean;
     item: WishItem & { notes?: string; priceRaw?: number };
     onClose: () => void;
 
@@ -16,7 +18,18 @@ interface Props {
     onDelete?: (item: WishItem & { notes?: string; priceRaw?: number }) => void;
 }
 
-export function WishItemModal({ item, onClose, canManage = false, onEdit, onDelete }: Props) {
+export function WishItemModal({ isOpen, item, onClose, canManage = false, onEdit, onDelete }: Props) {
+    console.log(isOpen);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        document.body.classList.add("modal-open");
+        return () => {
+            document.body.classList.remove("modal-open");
+        };
+    }, [isOpen]);
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
             <div className="absolute inset-0 bg-black/70" />
