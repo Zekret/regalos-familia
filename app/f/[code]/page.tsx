@@ -4,13 +4,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { X, User } from "lucide-react";
-
-type FamilyMember = {
-    id: string;
-    name: string;
-    wishListsCount?: number;
-    avatar?: string;
-};
+import { JoinFamilyForm } from "./components/JoinFamilyForm";
 
 type Family = {
     id: string;
@@ -52,7 +46,6 @@ export default function FamiliaPage() {
     const familyCode = segments[1];
 
     const [family, setFamily] = useState<Family | null>(null);
-    const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(true);
 
     const [notFound, setNotFound] = useState(false);
@@ -90,34 +83,6 @@ export default function FamiliaPage() {
         loadFamily();
     }, [familyCode]);
 
-    // Cargar miembros de la familia (solo si la familia existe)
-    useEffect(() => {
-        const loadMembers = async () => {
-            try {
-                const res = await fetch(`/api/families/${familyCode}/members`);
-                const data = await res.json();
-                setFamilyMembers(data.members || []);
-            } catch (e) {
-                console.error("Error loading members:", e);
-            } finally {
-                setLoadingMembers(false);
-            }
-        };
-
-        if (!notFound) {
-            loadMembers();
-        }
-    }, [familyCode, notFound]);
-
-    const membersCount = familyMembers.length;
-    const membersLabel =
-        membersCount === 0
-            ? "Sin miembros todavía"
-            : membersCount === 1
-                ? "1 miembro"
-                : `${membersCount} miembros`;
-
-    // 🧱 Vista cuando la familia NO existe (404 "friendly")
     if (notFound && !loadingFamily) {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center text-center px-4">
@@ -167,70 +132,30 @@ export default function FamiliaPage() {
                         <h2 className="text-white text-2xl sm:text-3xl mb-2">
                             {family ? buildFamilyTitle(family.name) : "Espacio familiar"}
                         </h2>
-
                         <p className="text-emerald-400 mb-1">
                             Código familiar: {familyCode}
                         </p>
-
-                        <p className="text-gray-400 text-sm mb-1">{membersLabel}</p>
-                    </div>
-
-                    {/* Miembros */}
-                    <div className="mb-6">
-                        <h3 className="text-white mb-3">Miembros de la familia</h3>
-
-                        {loadingMembers ? (
-                            <p className="text-sm text-gray-300">Cargando...</p>
-                        ) : familyMembers.length === 0 ? (
-                            <p className="text-sm text-gray-400">Todavía no hay usuarios</p>
-                        ) : (
-                            <div className="max-h-64 overflow-y-auto pr-1 space-y-2">
-                                {familyMembers.map((member) => (
-                                    <div
-                                        key={member.id}
-                                        className="bg-slate-900 rounded-xl p-3 flex items-center gap-3"
-                                    >
-                                        {/* Avatar */}
-                                        <div className="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
-                                            {member.avatar ? (
-                                                <img
-                                                    src={member.avatar}
-                                                    alt={member.name}
-                                                    className="w-full h-full rounded-full object-cover"
-                                                />
-                                            ) : (
-                                                <User className="w-6 h-6 text-gray-400" />
-                                            )}
-                                        </div>
-
-                                        {/* Info */}
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-white truncate">{member.name}</p>
-                                            <p className="text-gray-400 text-sm">
-                                                {member.wishListsCount ?? 0} deseos
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </div>
 
                     {/* Acciones */}
-                    <div className="space-y-3">
-                        <button
-                            onClick={() => router.push(`/f/${familyCode}/nuevo-miembro`)}
-                            className="w-full bg-white text-slate-900 rounded-xl py-3.5 hover:bg-gray-100 transition-colors"
-                        >
-                            Crear usuario
-                        </button>
+                    <div className="space-y-6">
+                        <div>
+                            <h3 className="text-white text-lg mb-2">Unirme a la familia</h3>
+                            <p className="text-sm text-gray-400 mb-4">
+                                Crea tu perfil para comenzar tu lista de deseos.
+                            </p>
 
-                        <button
-                            onClick={() => router.push(`/f/${familyCode}/perfil`)}
-                            className="w-full bg-emerald-500 text-white rounded-xl py-3.5 hover:bg-emerald-600 transition-colors"
-                        >
-                            Ya tengo un usuario
-                        </button>
+                            <JoinFamilyForm familyCode={familyCode} />
+                        </div>
+
+                        <div className="pt-4 border-t border-slate-700">
+                            <button
+                                onClick={() => router.push(`/f/${familyCode}/perfil`)}
+                                className="w-full bg-emerald-500 text-white rounded-xl py-3.5 hover:bg-emerald-600 transition"
+                            >
+                                Ya tengo un usuario
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

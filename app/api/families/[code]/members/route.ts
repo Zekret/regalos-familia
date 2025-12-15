@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 🔹 POST: crear nuevo miembro (tu lógica anterior)
+// 🔹 POST: crear nuevo miembro (SOLO crea usuario, NO crea lista)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
@@ -145,35 +145,22 @@ export async function POST(req: NextRequest) {
         name,
         pin_hash,
       })
-      .select("*")
+      .select("id, name")
       .single();
 
     if (memError || !member) {
-      console.error(memError);
-      return NextResponse.json({ message: "No se pudo crear tu perfil." }, { status: 500 });
+      console.error("[NEW MEMBER] memError:", memError);
+      return NextResponse.json(
+        { message: "No se pudo crear tu perfil." },
+        { status: 500 }
+      );
     }
 
-    // 4) Crear lista por defecto
-    const { data: list, error: listError } = await supabaseServer
-      .from("lists")
-      .insert({
-        family_id: family.id,
-        member_id: member.id,
-        title: `Lista de regalos de ${name}`,
-      })
-      .select("*")
-      .single();
-
-    if (listError || !list) {
-      console.error(listError);
-      return NextResponse.json({ message: "No se pudo crear tu lista." }, { status: 500 });
-    }
-
+    // ✅ Respuesta SIN lista
     return NextResponse.json(
       {
         familyCode: family.code,
         member: { id: member.id, name: member.name },
-        list: { id: list.id, title: list.title },
       },
       { status: 201 }
     );
