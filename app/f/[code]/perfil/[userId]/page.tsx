@@ -16,6 +16,24 @@ type Session = {
 
 type Section = "family" | "wishes";
 
+type Owner = {
+    id: string;
+    name: string;
+};
+
+function readSessionSafe(): Session | null {
+    try {
+        const raw = localStorage.getItem("gf_session");
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as Session;
+
+        if (!parsed?.familyCode || !parsed?.member?.id || !parsed?.member?.name) return null;
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
 export default function PerfilPage() {
     const router = useRouter();
     const pathname = usePathname();
@@ -26,96 +44,103 @@ export default function PerfilPage() {
     const [sessionLoading, setSessionLoading] = useState(true);
     const [sessionError, setSessionError] = useState<string | null>(null);
 
+    const [owner, setOwner] = useState<Owner | null>(null);
+    const [ownerLoading, setOwnerLoading] = useState(false);
+
     const activeSection: Section = useMemo(() => {
         const s = searchParams.get("section");
-        return s === "wishes" ? "wishes" : "family";
+        return s === "family" ? "family" : "wishes";
     }, [searchParams]);
 
-    // ✅ URLs para Sidebar/MobileNav
-    const familyHref = `/f/${code}/perfil/${userId}?section=family`;
-    const wishesHref = `/f/${code}/perfil/${userId}?section=wishes`;
-
-    // ✅ Default: si no viene ?section= -> family
+    // ✅ Default section
     useEffect(() => {
         const section = searchParams.get("section");
         if (!section) router.replace(`${pathname}?section=wishes`);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pathname, searchParams]);
 
-    // ✅ Guard principal:
-    // Si entran a ?section=wishes sin ser dueño (o sin sesión) -> mandarlos a vista pública.
-    useEffect(() => {
-        const isWishes = searchParams.get("section") === "wishes";
-        if (!isWishes) return;
-
-        if (!code || !userId) return;
-
-        try {
-            const raw = localStorage.getItem("gf_session");
-            if (!raw) {
-                router.replace(`/u/${userId}/wishlists`);
-                return;
-            }
-
-            const parsed = JSON.parse(raw) as Session;
-
-            const isOwner = parsed?.member?.id === userId;
-            const isSameFamily = parsed?.familyCode === code;
-
-            if (!isOwner || !isSameFamily) {
-                router.replace(`/u/${userId}/wishlists`);
-                return;
-            }
-        } catch {
-            router.replace(`/u/${userId}/wishlists`);
-        }
-    }, [code, userId, router, searchParams]);
-
-    // ✅ Leer sesión normal (solo para renderizar vista interna)
-    // Importante: si NO hay sesión o NO coincide, NO es "error":
-    // simplemente no puede ver el perfil privado.
+    // ✅ Cargar sesión válida si pertenece a la misma familia
     useEffect(() => {
         if (!code || !userId) return;
 
-        try {
-            const raw = localStorage.getItem("gf_session");
-
-            if (!raw) {
-                setSession(null);
-                setSessionError(null);
-                setSessionLoading(false);
-                return;
-            }
-
-            const parsed = JSON.parse(raw) as Session;
-
-            const isSameFamily = parsed.familyCode === code;
-            const isOwner = parsed.member.id === userId;
-
-            if (!isSameFamily || !isOwner) {
-                setSession(null);
-                setSessionError(null);
-                setSessionLoading(false);
-                return;
-            }
-
-            setSession(parsed);
-            setSessionError(null);
-            setSessionLoading(false);
-        } catch (err) {
-            console.error("Error leyendo gf_session:", err);
+        const s = readSessionSafe();
+        if (!s || s.familyCode !== code) {
             setSession(null);
             setSessionError(null);
             setSessionLoading(false);
+            return;
         }
+
+        setSession(s);
+        setSessionError(null);
+        setSessionLoading(false);
     }, [code, userId]);
 
-    // ✅ Si no hay sesión válida, mandarlo al login del miembro (NO al inicio /f/${code})
+    // ✅ Guard: si no hay sesión, wishes -> pública, family -> login
     useEffect(() => {
-        if (!sessionLoading && !sessionError && !session && code) {
-            router.replace(`/f/${code}/perfil`);
+        if (!code || !userId) return;
+        if (sessionLoading) return;
+
+        if (!session) {
+            if (activeSection === "wishes") router.replace(`/u/${userId}/wishlists`);
+            else router.replace(`/f/${code}/perfil`);
         }
-    }, [sessionLoading, sessionError, session, code, router]);
+    }, [code, userId, activeSection, sessionLoading, session, router]);
+
+    const selfId = session?.member.id ?? "";
+    const isOwnerViewingSelf = !!session && selfId === userId;
+
+    // ✅ HREFs del nav SIEMPRE al perfil propio (para que “Lista de deseos” vuelva a ti)
+    const familyHref = useMemo(() => {
+        if (!code || !selfId) return `/f/${code}/perfil`;
+        return `/f/${code}/perfil/${selfId}?section=family`;
+    }, [code, selfId]);
+
+    const wishesHref = useMemo(() => {
+        if (!code || !selfId) return `/f/${code}/perfil`;
+        return `/f/${code}/perfil/${selfId}?section=wishes`;
+    }, [code, selfId]);
+
+    // ✅ Resolver owner real en wishes (solo si estás viendo a otro)
+    useEffect(() => {
+        if (!code || !userId) return;
+        if (sessionLoading) return;
+        if (!session) return;
+        if (activeSection !== "wishes") return;
+
+        const controller = new AbortController();
+
+        async function loadOwner() {
+            if (isOwnerViewingSelf) {
+                setOwner({ id: session.member.id, name: session.member.name });
+                return;
+            }
+
+            try {
+                setOwnerLoading(true);
+
+                const res = await fetch(`/api/families/${code}/members/${userId}`, {
+                    method: "GET",
+                    signal: controller.signal,
+                });
+
+                const data = await res.json().catch(() => null);
+                if (!res.ok) throw new Error(data?.message || "No se pudo cargar el familiar.");
+
+                const m = data?.member ?? data;
+                setOwner({ id: (m?.id ?? userId).toString(), name: (m?.name ?? "Familiar").toString() });
+            } catch (err: any) {
+                if (err?.name === "AbortError") return;
+                console.error("[PerfilPage] loadOwner error:", err);
+                setOwner({ id: userId, name: "Familiar" });
+            } finally {
+                setOwnerLoading(false);
+            }
+        }
+
+        loadOwner();
+        return () => controller.abort();
+    }, [code, userId, sessionLoading, session, activeSection, isOwnerViewingSelf]);
 
     const handleLogout = () => {
         localStorage.removeItem("gf_session");
@@ -149,7 +174,6 @@ export default function PerfilPage() {
         );
     }
 
-    // Mientras redirige (cuando no hay sesión válida)
     if (!session) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
@@ -157,6 +181,9 @@ export default function PerfilPage() {
             </div>
         );
     }
+
+    const ownerName =
+        ownerLoading ? "Cargando..." : owner?.name ?? (isOwnerViewingSelf ? session.member.name : "Familiar");
 
     return (
         <div className="flex h-screen bg-black">
@@ -167,22 +194,20 @@ export default function PerfilPage() {
                 memberName={session.member.name}
                 familyCode={session.familyCode}
                 onLogout={handleLogout}
+                isViewingOwnWishes={isOwnerViewingSelf}
             />
 
             <main className="flex-1 flex flex-col min-h-0">
                 <div className="flex-1 overflow-y-auto pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0">
                     {activeSection === "family" && (
-                        <FamilyList
-                            familyCode={session.familyCode}
-                            currentMemberId={session.member.id}
-                        />
+                        <FamilyList familyCode={session.familyCode} currentMemberId={session.member.id} />
                     )}
 
                     {activeSection === "wishes" && (
                         <WishList
-                            memberId={session.member.id}
-                            owner={{ name: session.member.name }}
-                            canCreate
+                            memberId={userId}
+                            owner={{ name: ownerName }}
+                            canCreate={isOwnerViewingSelf}
                             familyCode={session.familyCode}
                         />
                     )}
@@ -193,6 +218,7 @@ export default function PerfilPage() {
                 activeSection={activeSection}
                 familyHref={familyHref}
                 wishesHref={wishesHref}
+                isViewingOwnWishes={session.member.id === userId}
             />
         </div>
     );

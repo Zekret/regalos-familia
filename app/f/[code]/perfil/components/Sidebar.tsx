@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import React from "react";
 import { Users, Heart, LogOut } from "lucide-react";
 
 interface SidebarProps {
@@ -11,6 +12,7 @@ interface SidebarProps {
     memberName?: string;
     familyCode?: string;
     onLogout?: () => void;
+    isViewingOwnWishes?: boolean;
 }
 
 function safeHref(href?: string) {
@@ -33,6 +35,7 @@ export function Sidebar({
     memberName,
     familyCode,
     onLogout,
+    isViewingOwnWishes = true,
 }: SidebarProps) {
     const computedFamilyHref =
         familyHref?.trim() ||
@@ -45,6 +48,11 @@ export function Sidebar({
     const family = safeHref(computedFamilyHref);
     const wishes = safeHref(computedWishesHref);
 
+    // ✅ Activo solo si estás en wishes Y son TUS listas
+    const isWishesActive = activeSection === "wishes" && isViewingOwnWishes;
+    // ✅ Family puede seguir funcionando normal
+    const isFamilyActive = activeSection === "family";
+
     return (
         <aside className="hidden md:flex w-64 bg-black border-r border-gray-800 flex-col">
             <div className="p-6 border-b border-gray-800">
@@ -54,24 +62,27 @@ export function Sidebar({
                 <p className="text-gray-400 mt-1 text-sm">
                     {familyCode ? `Código familia: ${familyCode}` : "Bienvenido de nuevo"}
                 </p>
+
+                {/* ✅ Opcional: contexto cuando estás viendo a otro familiar */}
+                {activeSection === "wishes" && !isViewingOwnWishes && (
+                    <p className="text-xs text-gray-500 mt-2">Viendo listas de un familiar</p>
+                )}
             </div>
 
             <nav className="flex-1 p-4">
                 <ul className="space-y-2">
-
-
                     <li>
                         <Link
                             href={wishes}
                             onClick={preventIfInvalid(computedWishesHref)}
                             aria-disabled={!computedWishesHref?.trim()}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === "wishes"
-                                ? "bg-gray-800 text-white"
-                                : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isWishesActive
+                                    ? "bg-gray-800 text-white"
+                                    : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
                                 }`}
                         >
                             <Heart className="w-5 h-5" />
-                            <span className="text-sm">Lista de deseos</span>
+                            <span className="text-sm">Listas de deseos</span>
                         </Link>
                     </li>
 
@@ -80,9 +91,9 @@ export function Sidebar({
                             href={family}
                             onClick={preventIfInvalid(computedFamilyHref)}
                             aria-disabled={!computedFamilyHref?.trim()}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === "family"
-                                ? "bg-gray-800 text-white"
-                                : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isFamilyActive
+                                    ? "bg-gray-800 text-white"
+                                    : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
                                 }`}
                         >
                             <Users className="w-5 h-5" />

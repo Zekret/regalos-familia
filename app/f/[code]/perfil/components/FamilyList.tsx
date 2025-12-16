@@ -1,23 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Users, Heart } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { FloatingShareButton } from "./FloatingShareButton";
 
 interface FamilyMember {
     id: string;
     name: string;
     created_at?: string;
-    // Más adelante puedes rellenar esto desde el backend si agregas un count
     wishListsCount?: number;
 }
 
 interface FamilyListProps {
-    familyCode: string;        // código de la familia (ej: "DAY198")
-    currentMemberId?: string;  // opcional, para marcar quién eres tú
+    familyCode: string; // ej: "DAY198"
+    currentMemberId?: string;
 }
 
 export function FamilyList({ familyCode, currentMemberId }: FamilyListProps) {
+    const router = useRouter();
+
     const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -43,14 +45,24 @@ export function FamilyList({ familyCode, currentMemberId }: FamilyListProps) {
                     throw new Error(data?.message || "No se pudieron cargar los miembros.");
                 }
 
-                // Tu endpoint ya devuelve: { familyCode, members: [...] }
-                const members: FamilyMember[] = (data?.members ?? []).map((m: any) => ({
-                    id: m.id,
-                    name: m.name,
-                    created_at: m.created_at,
-                    // De momento 0, luego lo puedes alimentar con un aggregate en Supabase
-                    wishListsCount: m.wishListsCount ?? 0,
-                }));
+                // ✅ Normaliza el ID (por si viene como member_id / user_id, etc.)
+                const members: FamilyMember[] = (data?.members ?? [])
+                    .map((m: any) => {
+                        const id = (m?.id ?? m?.member_id ?? m?.user_id ?? "")
+                            .toString()
+                            .trim();
+                        const name = (m?.name ?? "").toString().trim();
+
+                        if (!id || !name) return null;
+
+                        return {
+                            id,
+                            name,
+                            created_at: m.created_at,
+                            wishListsCount: m.wishListsCount ?? 0,
+                        };
+                    })
+                    .filter(Boolean) as FamilyMember[];
 
                 setFamilyMembers(members);
             } catch (err: any) {
@@ -67,11 +79,27 @@ export function FamilyList({ familyCode, currentMemberId }: FamilyListProps) {
         return () => controller.abort();
     }, [familyCode]);
 
+    // ✅ SSR-safe
+    const shareUrl = useMemo(() => {
+        if (typeof window === "undefined") return "";
+        return `${window.location.origin}/f/${familyCode}`;
+    }, [familyCode]);
+
     const totalMembers = familyMembers.length;
+
+    function goToMemberWishlists(memberId?: string) {
+        const id = (memberId ?? "").toString().trim();
+        if (!id) {
+            console.warn("[FamilyList] memberId vacío. No se navega.");
+            return;
+        }
+        router.push(`/f/${familyCode}/perfil/${id}?section=wishes`);
+    }
 
     return (
         <div className="p-4 pb-24 md:p-8 md:pb-8">
-            <FloatingShareButton url={`${window.location.origin}/f/KLY921`} subtitle="Compartir URL Familia" />
+            <FloatingShareButton url={shareUrl} subtitle="Compartir URL Familia" />
+
             <div className="max-w-5xl mx-auto">
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8 mt-1">
@@ -83,17 +111,14 @@ export function FamilyList({ familyCode, currentMemberId }: FamilyListProps) {
                             <h2 className="text-white">Lista de familiares</h2>
 
                             {loading ? (
-                                <p className="text-gray-400 mt-1 text-sm">
-                                    Cargando miembros...
-                                </p>
+                                <p className="text-gray-400 mt-1 text-sm">Cargando miembros...</p>
                             ) : error ? (
                                 <p className="text-red-400 mt-1 text-sm">
                                     Error al cargar familiares
                                 </p>
                             ) : (
                                 <p className="text-gray-400 mt-1 text-sm">
-                                    {totalMembers} miembro
-                                    {totalMembers === 1 ? "" : "s"} registrado
+                                    {totalMembers} miembro{totalMembers === 1 ? "" : "s"} registrado
                                     {totalMembers === 1 ? "" : "s"}
                                 </p>
                             )}
@@ -124,6 +149,13 @@ export function FamilyList({ familyCode, currentMemberId }: FamilyListProps) {
                             return (
                                 <div
                                     key={member.id}
+                                    onClick={() => goToMemberWishlists(member.id)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ")
+                                            goToMemberWishlists(member.id);
+                                    }}
                                     className="bg-gray-900 rounded-lg border border-gray-800 p-6 hover:border-gray-700 transition-all cursor-pointer"
                                 >
                                     <div className="flex flex-col items-center text-center">
@@ -142,9 +174,7 @@ export function FamilyList({ familyCode, currentMemberId }: FamilyListProps) {
                                             <Heart className="w-4 h-4" />
                                             <span>
                                                 {wishCount}{" "}
-                                                {wishCount === 1
-                                                    ? "lista de deseos"
-                                                    : "listas de deseos"}
+                                                {wishCount === 1 ? "lista de deseos" : "listas de deseos"}
                                             </span>
                                         </div>
                                     </div>
@@ -154,7 +184,7 @@ export function FamilyList({ familyCode, currentMemberId }: FamilyListProps) {
                     </div>
                 )}
 
-                {/* Loading simple (si quieres mantener algo abajo también) */}
+                {/* Loading simple */}
                 {loading && (
                     <p className="text-gray-400 text-sm">
                         Cargando integrantes de tu familia...
