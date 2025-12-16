@@ -4,7 +4,7 @@ interface UserProfileProps {
 
 export function UserProfile({ name }: UserProfileProps) {
     return (
-        <div className="flex flex-col items-center mb-8 md:mb-12 py-6">
+        <div className="flex flex-col items-center mb-2 md:mb-12 py-6">
             {/* Avatar */}
             <div className="mb-4">
                 <div className="w-20 h-20 md:w-24 md:h-24 bg-linear-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center text-white">

@@ -46,6 +46,85 @@ function buildPublicUserWishlistsUrl(origin: string, memberId: string) {
   return `${origin}/u/${memberId}/wishlists`;
 }
 
+/**
+ * ✅ SOLO PREVIEW DE IMÁGENES (0 / 1 / 2 / 3+)
+ * - 0: placeholder 🎁
+ * - 1: imagen grande + placeholder derecha
+ * - 2: imagen grande + derecha (imagen + placeholder)
+ * - 3+: imagen grande + derecha (imagen + imagen)
+ *
+ * OJO: por ahora seguimos usando board.imageUrl como mock de imágenes,
+ * pero la estructura ya queda lista para pasar imágenes reales luego.
+ */
+function WishListImagesPreviewLocal({
+  title,
+  images,
+}: {
+  title: string;
+  images: string[];
+}) {
+  const count = images.length;
+
+  const Placeholder = () => (
+    <div className="w-full h-full flex items-center justify-center bg-gray-800">
+      <span className="text-3xl opacity-40">🎁</span>
+    </div>
+  );
+
+  return (
+    <div className="relative aspect-[4/3] rounded-xl overflow-hidden mb-2 bg-gray-900 grid grid-cols-[2fr_1fr] gap-1">
+      {/* Izquierda (grande) */}
+      <div className="relative h-full">
+        {count > 0 ? (
+          <ImageWithFallback
+            src={images[0]}
+            alt={title}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <Placeholder />
+        )}
+      </div>
+
+      {/* Derecha */}
+      {count <= 1 ? (
+        <Placeholder />
+      ) : count === 2 ? (
+        <div className="grid grid-rows-2 gap-1 h-full">
+          <div className="relative">
+            <ImageWithFallback
+              src={images[1]}
+              alt={title}
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <Placeholder />
+        </div>
+      ) : (
+        <div className="grid grid-rows-2 gap-1 h-full">
+          <div className="relative">
+            <ImageWithFallback
+              src={images[1]}
+              alt={title}
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="relative">
+            <ImageWithFallback
+              src={images[2]}
+              alt={title}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* gradiente igual al anterior */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+    </div>
+  );
+}
+
 export function WishList({ memberId, owner, canCreate = false }: WishListProps) {
   const router = useRouter();
 
@@ -299,34 +378,36 @@ export function WishList({ memberId, owner, canCreate = false }: WishListProps) 
         {/* Grid */}
         {!loading && !error && wishBoards.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-            {wishBoards.map((board) => (
-              <div
-                key={board.id}
-                className="group cursor-pointer"
-                onClick={() => router.push(`/wishlists/${board.id}`)}
-              >
-                <div className="relative aspect-[4/3] rounded-xl overflow-hidden mb-2 bg-gray-900">
-                  <ImageWithFallback
-                    src={board.imageUrl}
-                    alt={board.title}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                </div>
+            {wishBoards.map((board) => {
+              // ✅ Por ahora, usamos el fallback como “mock” de imágenes (hasta integrar items reales)
+              const previewImages = [board.imageUrl, board.imageUrl, board.imageUrl].slice(
+                0,
+                Math.min(board.itemsCount, 3)
+              );
 
-                <h3 className="text-white mb-1 leading-tight line-clamp-2">
-                  {board.title}
-                </h3>
+              return (
+                <div
+                  key={board.id}
+                  className="group cursor-pointer"
+                  onClick={() => router.push(`/wishlists/${board.id}`)}
+                >
+                  {/* ✅ SOLO CAMBIO: preview estilo wishlist */}
+                  <WishListImagesPreviewLocal title={board.title} images={previewImages} />
 
-                <div className="flex items-center gap-2 text-gray-400">
-                  <Heart
-                    className={`w-3 h-3 ${board.liked ? "fill-pink-500 text-pink-500" : ""
-                      }`}
-                  />
-                  <span className="text-sm">{board.itemsCount} Deseos</span>
+                  <h3 className="text-white mb-1 leading-tight line-clamp-2">
+                    {board.title}
+                  </h3>
+
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <Heart
+                      className={`w-3 h-3 ${board.liked ? "fill-pink-500 text-pink-500" : ""
+                        }`}
+                    />
+                    <span className="text-sm">{board.itemsCount} Deseos</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

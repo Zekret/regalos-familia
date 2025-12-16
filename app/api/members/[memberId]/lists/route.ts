@@ -49,9 +49,9 @@ export async function POST(req: NextRequest) {
                 family_id: member.family_id,
                 member_id: member.id,
                 title,
-                description, // ✅ nuevo
+                description,
             })
-            .select("id, title, description, created_at") // ✅ nuevo
+            .select("id, title, description, created_at")
             .single();
 
         if (listError || !list) {
@@ -80,21 +80,58 @@ export async function GET(req: NextRequest) {
             );
         }
 
-        const { data, error } = await supabaseServer
+        // 1) Traer listas del miembro
+        const { data: lists, error: listsError } = await supabaseServer
             .from("lists")
-            .select("id, title, description, created_at") // ✅ nuevo
+            .select("id, title, description, created_at")
             .eq("member_id", memberId)
             .order("created_at", { ascending: true });
 
-        if (error) {
-            console.error("[LISTS GET] error:", error);
+        if (listsError) {
+            console.error("[LISTS GET] error:", listsError);
             return NextResponse.json(
                 { message: "No se pudieron cargar las listas.", lists: [] },
                 { status: 500 }
             );
         }
 
-        return NextResponse.json({ lists: data ?? [] }, { status: 200 });
+        const safeLists = lists ?? [];
+
+        if (safeLists.length === 0) {
+            return NextResponse.json({ lists: [] }, { status: 200 });
+        }
+
+        // 2) Contar items por lista (deseos)
+        // ⚠️ Cambia "items" si tu tabla de deseos se llama distinto
+        const listIds = safeLists.map((l) => l.id);
+
+        const { data: itemsRows, error: itemsError } = await supabaseServer
+            .from("items")
+            .select("id, list_id")
+            .in("list_id", listIds);
+
+        if (itemsError) {
+            console.error("[LISTS GET] items error:", itemsError);
+            // Si falla el conteo, devolvemos igual las listas con itemsCount = 0
+            const fallback = safeLists.map((l) => ({ ...l, itemsCount: 0 }));
+            return NextResponse.json({ lists: fallback }, { status: 200 });
+        }
+
+        // 3) Armar mapa de conteo
+        const countMap: Record<string, number> = {};
+        for (const row of itemsRows ?? []) {
+            const lid = (row as any).list_id as string;
+            if (!lid) continue;
+            countMap[lid] = (countMap[lid] ?? 0) + 1;
+        }
+
+        // 4) Unir resultado
+        const enriched = safeLists.map((l) => ({
+            ...l,
+            itemsCount: countMap[l.id] ?? 0,
+        }));
+
+        return NextResponse.json({ lists: enriched }, { status: 200 });
     } catch (err) {
         console.error("[LISTS GET] error inesperado:", err);
         return NextResponse.json(
