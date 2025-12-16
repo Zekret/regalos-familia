@@ -17,6 +17,10 @@ import {
   type EditWishItemPayload,
 } from "@/app/f/[code]/perfil/components/EditWishItemModal";
 
+// ✅ IMPORTA el tipo (y el modal si lo necesitas en otra parte)
+// (En WishListDetail lo usa internamente, acá solo necesitamos el type)
+import type { EditWishListPayload } from "@/app/f/[code]/perfil/components/EditWishListModal";
+
 type Session = {
   familyCode: string;
   member: { id: string; name: string };
@@ -56,7 +60,15 @@ export default function InternalWishListDetailPage() {
   const { meta, items, setItems, loading, error } = useWishListData(listId);
   const itemModal = useWishItemModal();
 
-  // ✅ modal editar
+  // ✅ meta local editable (para reflejar el cambio al guardar)
+  const [metaLocal, setMetaLocal] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!meta) return;
+    setMetaLocal(meta);
+  }, [meta]);
+
+  // ✅ modal editar item
   const [editOpen, setEditOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
 
@@ -202,7 +214,6 @@ export default function InternalWishListDetailPage() {
     return { raw, imageUrl: newImageUrl, isMostWanted: newIsMostWanted };
   }
 
-
   async function deleteItem(itemId: string) {
     const res = await fetch(`/api/items/${itemId}`, {
       method: "DELETE",
@@ -212,6 +223,28 @@ export default function InternalWishListDetailPage() {
     if (!res.ok) throw new Error(data?.message || "No se pudo eliminar.");
 
     setItems((prev) => prev.filter((it: any) => it.id !== itemId));
+  }
+
+  // ✅ ACTUALIZAR LISTA (title/description)
+  async function updateList(payload: EditWishListPayload) {
+    const res = await fetch(`/api/lists/${listId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || "No se pudo actualizar la lista.");
+
+    const updated = data?.list;
+    if (!updated) return;
+
+    // ✅ refleja en UI inmediatamente
+    setMetaLocal((prev: any) => ({
+      ...(prev ?? {}),
+      title: updated.title ?? payload.title,
+      description: updated.description ?? payload.description,
+    }));
   }
 
   const handleLogout = () => {
@@ -227,7 +260,7 @@ export default function InternalWishListDetailPage() {
     );
   }
 
-  if (error || !meta || !session) {
+  if (error || !meta || !metaLocal || !session) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6">
         <div className="bg-red-950/40 border border-red-700 text-red-200 text-sm px-4 py-3 rounded-xl">
@@ -252,8 +285,8 @@ export default function InternalWishListDetailPage() {
         <div className="flex-1 overflow-y-auto pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0">
           <WishListDetail
             listId={listId}
-            title={meta.title}
-            description={meta.description}
+            title={metaLocal.title}
+            description={metaLocal.description}
             creatorName={meta.creatorName}
             creatorUsername={meta.creatorUsername}
             items={items}
@@ -262,6 +295,9 @@ export default function InternalWishListDetailPage() {
             canAddItem
             onCreateItem={createItem}
             onItemClick={(item) => itemModal.openModal(item)}
+            // ✅ editar lista (privado / dueño)
+            canEditList={true}
+            onUpdateList={updateList}
           />
 
           {/* ✅ Privado: modal informativo/gestión */}

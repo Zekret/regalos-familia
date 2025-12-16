@@ -1,9 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeft, Heart, ExternalLink, Share2, Link as LinkIcon, Check, Star, CircleStar } from "lucide-react";
+import {
+    ArrowLeft,
+    ExternalLink,
+    Share2,
+    Link as LinkIcon,
+    Check,
+    Star,
+    Edit2,
+} from "lucide-react";
 import { ImageWithFallback } from "./ImageWithFallback";
 import { AddWishItemModal } from "./AddWishItemModal";
+import { EditWishListModal, type EditWishListPayload } from "./EditWishListModal";
 
 export interface WishItem {
     id: string;
@@ -31,6 +40,10 @@ export interface WishListDetailProps {
     canAddItem?: boolean;
     onCreateItem?: (formData: FormData) => Promise<void>;
 
+    // ✅ editar lista (dueño)
+    canEditList?: boolean;
+    onUpdateList?: (payload: EditWishListPayload) => Promise<void>;
+
     // click item (para modal)
     onItemClick?: (item: WishItem) => void;
 }
@@ -50,13 +63,17 @@ export function WishListDetail({
     showBack = true,
     canAddItem = true,
     onCreateItem,
+    canEditList = false,
+    onUpdateList,
     onItemClick,
 }: WishListDetailProps) {
     const [isAddOpen, setIsAddOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+
     const creatorInitial = (creatorName?.trim()?.charAt(0) || "U").toUpperCase();
     const hasDescription = Boolean(description?.trim());
 
-    // ✅ Compartir (FAB + panel)
+    // ✅ Compartir
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [copied, setCopied] = useState(false);
 
@@ -95,23 +112,42 @@ export function WishListDetail({
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1800);
         } catch {
-            // silencioso: evitamos crash
+            // silencioso
         }
+    }
+
+    async function handleUpdateList(payload: EditWishListPayload) {
+        if (!onUpdateList) return;
+        await onUpdateList(payload);
     }
 
     return (
         <div className="p-4 md:p-8">
-            {/* ✅ FAB Compartir (top-right, siempre visible) */}
+            {/* ✅ FAB Compartir */}
             <button
                 type="button"
                 onClick={() => setIsShareOpen(true)}
                 className="fixed top-6 right-6 md:top-8 md:right-8 flex items-center gap-3 px-5 py-3
-                   bg-gray-800 text-white rounded-full shadow-lg hover:bg-gray-700
-                   transition-all hover:scale-105 z-50"
+          bg-gray-800 text-white rounded-full shadow-lg hover:bg-gray-700
+          transition-all hover:scale-105 z-50"
             >
                 <Share2 className="w-5 h-5" />
                 <span className="hidden sm:inline font-medium">Compartir</span>
             </button>
+
+            {/* ✅ FAB Editar (solo dueño) */}
+            {canEditList && onUpdateList ? (
+                <button
+                    type="button"
+                    onClick={() => setIsEditOpen(true)}
+                    className="fixed top-6 right-6 md:top-8 md:right-8 mt-14 md:mt-16 flex items-center gap-3 px-5 py-3
+            bg-emerald-500 text-slate-900 rounded-full shadow-lg hover:bg-emerald-400
+            transition-all hover:scale-105 z-50"
+                >
+                    <Edit2 className="w-5 h-5" />
+                    <span className="hidden sm:inline font-medium">Editar</span>
+                </button>
+            ) : null}
 
             {/* ✅ Panel compartir */}
             {isShareOpen && (
@@ -202,11 +238,6 @@ export function WishListDetail({
                     ) : (
                         <div className="mb-6" />
                     )}
-
-                    <div className="flex items-center gap-2 text-gray-400">
-                        <Heart className="w-4 h-4 fill-pink-500 text-pink-500" />
-                        <span>{items.length} Deseos</span>
-                    </div>
                 </div>
 
                 {/* Grid */}
@@ -253,6 +284,7 @@ export function WishListDetail({
                                             <ExternalLink size={14} className=" text-white" />
                                         </div>
                                     ) : null}
+
                                     {item.isMostWanted && (
                                         <div className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/70 backdrop-blur-sm">
                                             <Star
@@ -266,8 +298,6 @@ export function WishListDetail({
                                             </span>
                                         </div>
                                     )}
-
-
                                 </div>
 
                                 <div className="ml-1">
@@ -296,6 +326,17 @@ export function WishListDetail({
                     isOpen={isAddOpen}
                     onClose={() => setIsAddOpen(false)}
                     onSubmit={onCreateItem}
+                />
+            ) : null}
+
+            {/* ✅ Modal edit list */}
+            {canEditList && onUpdateList ? (
+                <EditWishListModal
+                    isOpen={isEditOpen}
+                    onClose={() => setIsEditOpen(false)}
+                    initialTitle={title}
+                    initialDescription={description}
+                    onSubmit={handleUpdateList}
                 />
             ) : null}
         </div>
