@@ -88,14 +88,50 @@ export function AddWishItemModal(props: {
             const res = await fetch(`/api/preview?url=${encodeURIComponent(u)}`);
             const data = (await res.json().catch(() => null)) as PreviewResponse | null;
 
-            if (!res.ok) throw new Error((data as any)?.message || "No se pudo analizar la URL.");
+            if (!res.ok) {
+                throw new Error((data as any)?.message || "No se pudo analizar la URL.");
+            }
 
-            const clean = data?.url ?? u;
-            setUrl(clean);
+            if (!data) {
+                throw new Error("Respuesta inválida del servidor.");
+            }
 
-            if (data?.title) setName(data.title);
-            if (data?.price != null) setPrice(String(data.price));
-            if (data?.image) setImageUrl(data.image);
+            // ✅ URL limpia siempre
+            const cleanUrl = data.url ?? u;
+            setUrl(cleanUrl);
+
+            // ✅ Title con fallback
+            if (data.title?.trim()) {
+                setName(data.title);
+            } else {
+                try {
+                    const hostname = new URL(cleanUrl).hostname.replace("www.", "");
+                    setName(hostname);
+                } catch {
+                    // no hacer nada
+                }
+            }
+
+            // ✅ Price solo si viene definido
+            if (data.price != null) {
+                setPrice(String(data.price));
+            }
+
+            // ✅ Image solo si viene
+            if (data.image) {
+                setImageUrl(data.image);
+            }
+
+            // ✅ Avanza solo si llegó algo útil
+            const hasSomething =
+                Boolean(data.title) ||
+                Boolean(data.image) ||
+                data.price != null;
+
+            if (!hasSomething) {
+                setPreviewError("No se pudo extraer información del producto. Puedes completar los datos manualmente.");
+                return;
+            }
 
             setStep(2);
         } catch (e: any) {
@@ -104,6 +140,7 @@ export function AddWishItemModal(props: {
             setPreviewLoading(false);
         }
     }
+
 
     function goManual() {
         const u = rawUrl.trim();
