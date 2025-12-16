@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeft, Heart, ExternalLink, Share2, Link as LinkIcon, Check } from "lucide-react";
+import { ArrowLeft, Heart, ExternalLink, Share2, Link as LinkIcon, Check, Star, CircleStar } from "lucide-react";
 import { ImageWithFallback } from "./ImageWithFallback";
 import { AddWishItemModal } from "./AddWishItemModal";
 
@@ -219,13 +219,13 @@ export function WishListDetail({
                                 onClick={() => setIsAddOpen(true)}
                                 className="group cursor-pointer text-left flex flex-col"
                             >
-                                <div className="relative aspect-square rounded-2xl overflow-hidden mb-3 bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition-colors">
+                                <div className="relative aspect-square rounded-2xl overflow-hidden mb-2 bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition-colors">
                                     <div className="w-12 h-12 bg-teal-500 rounded-full flex items-center justify-center">
                                         <ExternalLink className="w-6 h-6 text-white rotate-45" />
                                     </div>
                                 </div>
 
-                                <div className="text-center min-h-12 flex items-center justify-center">
+                                <div className="min-h-12 ml-2">
                                     <p className="text-gray-400 text-sm">Agregar deseo</p>
                                 </div>
 
@@ -242,24 +242,34 @@ export function WishListDetail({
                                 className="group cursor-pointer"
                                 onClick={() => onItemClick?.(item)}
                             >
-                                <div className="relative aspect-square rounded-2xl overflow-hidden mb-3 bg-white">
+                                <div className="relative aspect-square rounded-2xl overflow-hidden mb-2 bg-white">
                                     <ImageWithFallback
                                         src={item.imageUrl}
                                         alt={item.name}
                                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                     />
-                                    {item.isMostWanted ? <h1>Hola xd</h1> : null}
                                     {item.url ? (
                                         <div className="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center">
-                                            <ExternalLink className="w-3 h-3 text-white" />
+                                            <ExternalLink size={14} className=" text-white" />
                                         </div>
                                     ) : null}
+                                    {item.isMostWanted ? <div className="absolute top-2 left-4 w-7 h-7 rounded-full bg-black/70 backdrop-blur-sm flex items-center justify-center">
+                                        <Star
+                                            size={16}
+                                            fill="#34d399"        // emerald-400
+                                            stroke="#022c22"     // emerald-950
+                                            strokeWidth={1.5}
+                                        />
+                                    </div> : null}
+
                                 </div>
 
-                                <div className="text-center">
-                                    <h3 className="text-white text-sm mb-1 line-clamp-2">
-                                        {item.name}
-                                    </h3>
+                                <div className="ml-1">
+                                    <div className="flex flex-row gap-1">
+                                        <h3 className="text-white text-sm mb-1 line-clamp-2">
+                                            {item.name}
+                                        </h3>
+                                    </div>
                                     <p className="text-gray-400 text-sm">{item.price}</p>
                                 </div>
                             </div>

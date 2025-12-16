@@ -183,11 +183,11 @@ export function EditWishItemModal({ isOpen, item, onClose, onSubmit }: Props) {
                                 type="checkbox"
                                 checked={isMostWanted}
                                 onChange={(e) => setIsMostWanted(e.target.checked)}
-                                className="h-5 w-5 accent-yellow-400"
+                                className="h-5 w-5 accent-emerald-400"
                             />
                             <div className="flex-1">
                                 <div className="flex items-center gap-2">
-                                    <Star className="w-4 h-4 text-yellow-300" />
+                                    <Star className="w-4 h-4 text-emerald-400" />
                                     <span className="text-white text-sm font-medium">Más deseado</span>
                                 </div>
                                 <p className="text-xs text-slate-400 mt-1">
