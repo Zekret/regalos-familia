@@ -379,11 +379,11 @@ export function WishList({ familyCode, memberId, owner, canCreate = false }: Wis
                   />
                 </div>
 
-                <h3 className="text-white mb-1 leading-tight line-clamp-2">
+                <h3 className="text-white mb-1 ml-2 leading-tight line-clamp-2">
                   {board.title}
                 </h3>
 
-                <div className="flex items-center gap-2 text-gray-400">
+                <div className="flex items-center gap-2 text-gray-400 ml-2">
                   <Heart className={`w-3 h-3 ${board.liked ? "fill-pink-500 text-pink-500" : ""}`} />
                   <span className="text-sm">{board.itemsCount} Deseos</span>
                 </div>

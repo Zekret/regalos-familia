@@ -83,8 +83,11 @@ export function WishListImagesPreview({ items, itemsCount }: Props) {
     };
 
     return (
-        <div className="w-full aspect-video overflow-hidden rounded-2xl gap-1 bg-black">
+        <div className="w-full aspect-14/10 overflow-hidden rounded-2xl gap-1 bg-black">
             {renderImages()}
         </div>
     );
 }
+
+
+// 14 10
