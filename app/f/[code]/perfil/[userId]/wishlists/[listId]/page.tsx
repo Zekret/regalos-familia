@@ -68,7 +68,7 @@ export default function InternalWishListDetailPage() {
   const familyHref = `/f/${code}/perfil/${userId}?section=family`;
   const wishesHref = `/f/${code}/perfil/${userId}?section=wishes`;
 
-  // ✅ Default: si no viene ?section= -> family
+  // ✅ Default: si no viene ?section= -> wishes
   useEffect(() => {
     const section = searchParams.get("section");
     if (!section) router.replace(`${pathname}?section=wishes`);
@@ -115,6 +115,7 @@ export default function InternalWishListDetailPage() {
     if (!created) return;
 
     const raw = safeNumber(created.price);
+    const createdImageUrl = created?.image_urls?.[0] ?? created?.imageUrl ?? "";
 
     setItems((prev) => [
       {
@@ -122,7 +123,7 @@ export default function InternalWishListDetailPage() {
         name: created.name,
         url: created.url,
         liked: true,
-        imageUrl: created.imageUrl,
+        imageUrl: createdImageUrl,
         notes: created.notes ?? "",
         priceRaw: raw,
         price: formatCLP(raw),
@@ -131,22 +132,46 @@ export default function InternalWishListDetailPage() {
     ]);
   }
 
-  // ✅ EDITAR (PATCH)
   async function editItem(itemId: string, payload: EditWishItemPayload) {
-    const res = await fetch(`/api/lists/${listId}/items/${itemId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const hasImage = !!payload.imageFile;
+    const wantsRemove = !!payload.removeImage;
+
+    let res: Response;
+
+    if (hasImage || wantsRemove) {
+      const fd = new FormData();
+      fd.set("name", payload.name);
+      fd.set("notes", payload.notes ?? "");
+      fd.set("url", payload.url ?? "");
+      fd.set("price", String(payload.price ?? ""));
+      fd.set("removeImage", String(!!payload.removeImage));
+      if (payload.imageFile) fd.set("image", payload.imageFile);
+
+      res = await fetch(`/api/items/${itemId}`, {
+        method: "PUT",
+        body: fd,
+      });
+    } else {
+      res = await fetch(`/api/items/${itemId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: payload.name,
+          notes: payload.notes ?? null,
+          url: payload.url ?? null,
+          price: payload.price,
+        }),
+      });
+    }
 
     const data = await res.json().catch(() => null);
     if (!res.ok) throw new Error(data?.message || "No se pudo guardar.");
 
-    // si tu endpoint retorna el item actualizado, lo usamos;
-    // si no, caemos al payload + valores previos.
     const updated = data?.item;
-
     const raw = safeNumber(updated?.price ?? payload.price);
+
+    // ✅ viene desde DB como image_urls (array)
+    const newImageUrl: string = updated?.image_urls?.[0] ?? "";
 
     setItems((prev) =>
       prev.map((it: any) => {
@@ -157,12 +182,15 @@ export default function InternalWishListDetailPage() {
           name: updated?.name ?? payload.name,
           notes: updated?.notes ?? payload.notes ?? "",
           url: updated?.url ?? payload.url ?? "",
-          imageUrl: updated?.imageUrl ?? it.imageUrl,
+          imageUrl: newImageUrl || it.imageUrl,
           priceRaw: raw,
           price: formatCLP(raw),
         };
       })
     );
+
+    // ✅ devolver para refrescar modales
+    return { raw, imageUrl: newImageUrl };
   }
 
   async function deleteItem(itemId: string) {
@@ -267,18 +295,33 @@ export default function InternalWishListDetailPage() {
                 const it: any = editingItem;
                 if (!it?.id) return;
 
-                await editItem(it.id, payload);
+                const result = await editItem(it.id, payload);
 
-                // refrescar item en el modal informativo si sigue abierto
+                // ✅ refrescar item que usa el EditWishItemModal (misma id)
+                setEditingItem((prev: any) => {
+                  if (!prev || prev.id !== it.id) return prev;
+
+                  return {
+                    ...prev,
+                    name: payload.name,
+                    notes: payload.notes ?? "",
+                    url: payload.url ?? "",
+                    priceRaw: result.raw,
+                    price: formatCLP(result.raw),
+                    imageUrl: result.imageUrl || prev.imageUrl,
+                  };
+                });
+
+                // ✅ refrescar item en el modal informativo si sigue abierto
                 if (itemModal.open && itemModal.item?.id === it.id) {
-                  const raw = safeNumber(payload.price);
                   itemModal.openModal({
                     ...itemModal.item,
                     name: payload.name,
                     notes: payload.notes ?? "",
                     url: payload.url ?? "",
-                    priceRaw: raw,
-                    price: formatCLP(raw),
+                    priceRaw: result.raw,
+                    price: formatCLP(result.raw),
+                    imageUrl: result.imageUrl || (itemModal.item as any)?.imageUrl,
                   } as any);
                 }
               }}
@@ -287,11 +330,7 @@ export default function InternalWishListDetailPage() {
         </div>
       </main>
 
-      <MobileNav
-        activeSection={activeSection}
-        familyHref={familyHref}
-        wishesHref={wishesHref}
-      />
+      <MobileNav activeSection={activeSection} familyHref={familyHref} wishesHref={wishesHref} />
     </div>
   );
 }
