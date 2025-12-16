@@ -1,10 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import { ImageWithFallback } from "./ImageWithFallback";
 
 export type WishPreviewItem = {
     id: string;
     imageUrl?: string | null;
+    isMostWanted?: boolean;
+    priceValue?: number;
 };
 
 interface Props {
@@ -25,8 +28,27 @@ function normalizeSrc(src?: string | null) {
     return s.length > 0 ? s : null;
 }
 
+function num(v: unknown) {
+    const n = Number(v ?? 0);
+    return Number.isFinite(n) ? n : 0;
+}
+
 export function WishListImagesPreview({ items, itemsCount }: Props) {
-    const img = (i: number) => normalizeSrc(items[i]?.imageUrl);
+    // 1) isMostWanted true
+    // 2) mayor priceValue
+    const ordered = useMemo(() => {
+        return [...items].sort((a, b) => {
+            const aw = a.isMostWanted ? 1 : 0;
+            const bw = b.isMostWanted ? 1 : 0;
+            if (bw !== aw) return bw - aw;
+
+            const ap = num(a.priceValue);
+            const bp = num(b.priceValue);
+            return bp - ap;
+        });
+    }, [items]);
+
+    const img = (i: number) => normalizeSrc(ordered[i]?.imageUrl);
 
     const hasItems = itemsCount > 0;
 
@@ -88,6 +110,3 @@ export function WishListImagesPreview({ items, itemsCount }: Props) {
         </div>
     );
 }
-
-
-// 14 10

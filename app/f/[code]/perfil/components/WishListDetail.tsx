@@ -11,9 +11,9 @@ export interface WishItem {
     imageUrl: string;
     price: string;
     url?: string;
-    liked: boolean;
     notes?: string;
     priceRaw?: number;
+    isMostWanted: boolean;
 }
 
 export interface WishListDetailProps {
@@ -248,6 +248,7 @@ export function WishListDetail({
                                         alt={item.name}
                                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                     />
+                                    {item.isMostWanted ? <h1>Hola xd</h1> : null}
                                     {item.url ? (
                                         <div className="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center">
                                             <ExternalLink className="w-3 h-3 text-white" />

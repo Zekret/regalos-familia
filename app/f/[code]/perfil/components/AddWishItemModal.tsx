@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Link2, ArrowRight, ArrowLeft, Wand2, ImagePlus, Trash2 } from "lucide-react";
+import { X, Link2, ArrowRight, ArrowLeft, Wand2, ImagePlus, Trash2, Star } from "lucide-react";
 
 type PreviewResponse = {
     title: string | null;
@@ -35,6 +35,9 @@ export function AddWishItemModal(props: {
 
     const [file, setFile] = useState<File | null>(null);
 
+    // ✅ NUEVO
+    const [isMostWanted, setIsMostWanted] = useState(false);
+
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -51,6 +54,9 @@ export function AddWishItemModal(props: {
         setImageUrl(null);
 
         setFile(null);
+
+        // ✅ NUEVO
+        setIsMostWanted(false);
 
         setSaving(false);
         setSaveError(null);
@@ -126,6 +132,9 @@ export function AddWishItemModal(props: {
             formData.append("notes", notes.trim());
             formData.append("url", url.trim());
             formData.append("price", String(numericPrice));
+
+            // ✅ NUEVO: mandar checkbox
+            formData.append("isMostWanted", isMostWanted ? "true" : "false");
 
             // Si el usuario NO subió archivos, pero tenemos preview de URL → mandar scrapedImage
             // para que el backend la descargue y la suba al storage.
@@ -269,15 +278,32 @@ export function AddWishItemModal(props: {
                                 </div>
                             ) : null}
 
+                            {/* Checkbox "Más deseado" */}
+                            <label className="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={isMostWanted}
+                                    onChange={(e) => setIsMostWanted(e.target.checked)}
+                                    className="h-5 w-5 accent-yellow-400"
+                                />
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <Star className="w-4 h-4 text-yellow-300" />
+                                        <span className="text-white text-sm font-medium">Más deseado</span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-1">
+                                        Márcalo si este deseo es prioridad frente a los demás.
+                                    </p>
+                                </div>
+                            </label>
+
                             {/* ✅ Nuevo: subir imágenes */}
                             <div className="space-y-2">
                                 <label className="text-xs text-slate-400">Imágenes del producto (opcional)</label>
 
                                 <label className="w-full cursor-pointer rounded-xl bg-slate-900/60 border border-white/10 px-3 py-3 text-white hover:border-white/20 flex items-center gap-2">
                                     <ImagePlus className="w-4 h-4 text-slate-300" />
-                                    <span className="text-sm text-slate-200">
-                                        Subir imagen
-                                    </span>
+                                    <span className="text-sm text-slate-200">Subir imagen</span>
                                     <input
                                         type="file"
                                         accept="image/*"

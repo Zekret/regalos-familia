@@ -72,6 +72,8 @@ export function WishItemModal({
         onDelete?.(item);
     };
 
+    console.log(item);
+
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -203,10 +205,10 @@ export function WishItemModal({
                         </div>
 
                         {/* Badge */}
-                        <div className="flex items-center gap-2 text-emerald-400 mt-1">
+                        {item.isMostWanted ? <div className="flex items-center gap-2 text-emerald-400 mt-1">
                             <Sparkles className="w-4 h-4" />
-                            <span className="text-sm font-medium">Más deseados</span>
-                        </div>
+                            <span className="text-sm font-medium">Más deseado</span>
+                        </div> : null}
 
                         {/* ✅ Título más pequeño en mobile */}
                         <h3 className="mt-3 text-white font-semibold leading-tight line-clamp-2 text-xl sm:text-3xl">

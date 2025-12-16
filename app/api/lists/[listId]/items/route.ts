@@ -16,7 +16,7 @@ type UiItem = {
   price: string; // CLP formateado
   priceValue: number; // número real
   url?: string;
-  liked: boolean;
+  isMostWanted: boolean;
 };
 
 function getListIdFromUrl(req: NextRequest): string | null {
@@ -54,7 +54,7 @@ function mapDbItemToUi(row: any): UiItem {
     price: formatCLP(row.price),
     priceValue: safePrice,
     url: row.url ?? undefined,
-    liked: true,
+    isMostWanted: Boolean(row.is_most_wanted),
   };
 }
 
@@ -90,6 +90,7 @@ export async function GET(req: NextRequest) {
 
     let query = supabaseServer
       .from("items")
+      // ✅ ideal: seleccionar explícito (incluyendo is_most_wanted)
       .select("*")
       .eq("list_id", listId)
       .order("created_at", { ascending: true });
@@ -119,6 +120,17 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// ✅ helpers para parsear checkbox
+function parseBooleanFromUnknown(v: unknown): boolean {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v === 1;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    return s === "true" || s === "1" || s === "on" || s === "yes";
+  }
+  return false;
+}
+
 async function parseRequestBody(req: NextRequest) {
   const contentType = req.headers.get("content-type") || "";
 
@@ -132,9 +144,15 @@ async function parseRequestBody(req: NextRequest) {
     const scrapedImageUrl =
       (formData.get("scrapedImage") ?? "").toString().trim() || null;
 
+    // ✅ NUEVO: checkbox (puede venir "on", "true", "1", etc.)
+    const isMostWantedRaw = formData.get("isMostWanted");
+    const isMostWanted = parseBooleanFromUnknown(
+      isMostWantedRaw ?? false
+    );
+
     const files = formData.getAll("files").filter(Boolean) as File[];
 
-    return { name, notes, url, priceRaw, scrapedImageUrl, files };
+    return { name, notes, url, priceRaw, scrapedImageUrl, files, isMostWanted };
   }
 
   const body = await req.json().catch(() => null);
@@ -146,7 +164,18 @@ async function parseRequestBody(req: NextRequest) {
 
   const scrapedImageUrl = body?.imageUrl?.toString().trim() || null;
 
-  return { name, notes, url, priceRaw, scrapedImageUrl, files: [] as File[] };
+  // ✅ NUEVO: boolean directo desde json
+  const isMostWanted = parseBooleanFromUnknown(body?.isMostWanted);
+
+  return {
+    name,
+    notes,
+    url,
+    priceRaw,
+    scrapedImageUrl,
+    files: [] as File[],
+    isMostWanted,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -164,7 +193,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "listId inválido." }, { status: 400 });
     }
 
-    const { name, notes, url, priceRaw, scrapedImageUrl, files } =
+    const { name, notes, url, priceRaw, scrapedImageUrl, files, isMostWanted } =
       await parseRequestBody(req);
 
     if (!name) {
@@ -192,8 +221,11 @@ export async function POST(req: NextRequest) {
         price: numericPrice,
         status: "available",
         image_urls: [],
+
+        // ✅ NUEVO: guardar en DB
+        is_most_wanted: Boolean(isMostWanted),
       })
-      .select("id, name, url, price, created_at, image_urls")
+      .select("id, name, url, price, created_at, image_urls, is_most_wanted")
       .single();
 
     if (createError || !created) {
@@ -244,7 +276,7 @@ export async function POST(req: NextRequest) {
       .from("items")
       .update({ image_urls: imageUrls })
       .eq("id", itemId)
-      .select("id, name, url, price, created_at, image_urls")
+      .select("id, name, url, price, created_at, image_urls, is_most_wanted")
       .single();
 
     if (updError || !updated) {

@@ -122,7 +122,7 @@ export default function InternalWishListDetailPage() {
         id: created.id,
         name: created.name,
         url: created.url,
-        liked: true,
+        isMostWanted: created.isMostWanted,
         imageUrl: createdImageUrl,
         notes: created.notes ?? "",
         priceRaw: raw,
@@ -138,6 +138,8 @@ export default function InternalWishListDetailPage() {
 
     let res: Response;
 
+    const isMostWanted = !!payload.isMostWanted;
+
     if (hasImage || wantsRemove) {
       const fd = new FormData();
       fd.set("name", payload.name);
@@ -146,6 +148,8 @@ export default function InternalWishListDetailPage() {
       fd.set("price", String(payload.price ?? ""));
       fd.set("removeImage", String(!!payload.removeImage));
       if (payload.imageFile) fd.set("image", payload.imageFile);
+
+      fd.set("isMostWanted", isMostWanted ? "true" : "false");
 
       res = await fetch(`/api/items/${itemId}`, {
         method: "PUT",
@@ -160,6 +164,7 @@ export default function InternalWishListDetailPage() {
           notes: payload.notes ?? null,
           url: payload.url ?? null,
           price: payload.price,
+          isMostWanted,
         }),
       });
     }
@@ -170,8 +175,12 @@ export default function InternalWishListDetailPage() {
     const updated = data?.item;
     const raw = safeNumber(updated?.price ?? payload.price);
 
-    // ✅ viene desde DB como image_urls (array)
     const newImageUrl: string = updated?.image_urls?.[0] ?? "";
+
+    const newIsMostWanted: boolean =
+      typeof updated?.is_most_wanted === "boolean"
+        ? updated.is_most_wanted
+        : isMostWanted;
 
     setItems((prev) =>
       prev.map((it: any) => {
@@ -185,13 +194,14 @@ export default function InternalWishListDetailPage() {
           imageUrl: newImageUrl || it.imageUrl,
           priceRaw: raw,
           price: formatCLP(raw),
+          isMostWanted: newIsMostWanted,
         };
       })
     );
 
-    // ✅ devolver para refrescar modales
-    return { raw, imageUrl: newImageUrl };
+    return { raw, imageUrl: newImageUrl, isMostWanted: newIsMostWanted };
   }
+
 
   async function deleteItem(itemId: string) {
     const res = await fetch(`/api/items/${itemId}`, {

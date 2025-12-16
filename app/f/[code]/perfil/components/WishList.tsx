@@ -12,7 +12,6 @@ interface WishBoard {
   id: string;
   title: string;
   itemsCount: number;
-  liked: boolean;
 }
 
 interface ApiList {
@@ -39,6 +38,7 @@ type ApiItemsResponse = {
     id: string;
     imageUrl: string;
     priceValue?: number;
+    isMostWanted?: boolean;
   }>;
 };
 
@@ -96,7 +96,6 @@ export function WishList({ familyCode, memberId, owner, canCreate = false }: Wis
         id: list.id,
         title: list.title,
         itemsCount: list.itemsCount ?? 0,
-        liked: true,
       }));
 
       setWishBoards(mappedBoards);
@@ -121,7 +120,8 @@ export function WishList({ familyCode, memberId, owner, canCreate = false }: Wis
           const items: WishPreviewItem[] = (itemsJson?.items ?? []).map((it) => ({
             id: it.id,
             imageUrl: it.imageUrl,
-            price: Number(it.priceValue ?? 0),
+            isMostWanted: Boolean(it.isMostWanted),
+            priceValue: Number(it.priceValue ?? 0),
           }));
 
           return { listId, items };
@@ -173,7 +173,6 @@ export function WishList({ familyCode, memberId, owner, canCreate = false }: Wis
           id: newId,
           title: data.list.title,
           itemsCount: 0,
-          liked: true,
         },
         ...prev,
       ]);
@@ -195,7 +194,7 @@ export function WishList({ familyCode, memberId, owner, canCreate = false }: Wis
     <div className="p-4 pb-24 md:pb-8 md:p-8">
       <FloatingShareButton url={publicUrl} subtitle="Compartir listas" />
 
-      
+
 
       <div className="max-w-6xl mx-auto">
         {/* Owner */}
@@ -289,7 +288,7 @@ export function WishList({ familyCode, memberId, owner, canCreate = false }: Wis
                 </h3>
 
                 <div className="flex items-center gap-2 text-gray-400 ml-2">
-                  <Heart className={`w-3 h-3 ${board.liked ? "fill-pink-500 text-pink-500" : ""}`} />
+                  <Heart className="fill-pink-500 text-pink-500" />
                   <span className="text-sm">{board.itemsCount} Deseos</span>
                 </div>
               </div>

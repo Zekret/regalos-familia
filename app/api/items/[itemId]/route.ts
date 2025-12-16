@@ -25,6 +25,24 @@ function safeString(v: unknown): string | null {
     return s.length ? s : null;
 }
 
+// ✅ helper para boolean (checkbox / json)
+function parseBooleanFromUnknown(v: unknown): boolean | null {
+    // null => "no vino" (para no pisar si no lo mandas)
+    if (v === null || v === undefined) return null;
+
+    if (typeof v === "boolean") return v;
+    if (typeof v === "number") return v === 1;
+
+    if (typeof v === "string") {
+        const s = v.trim().toLowerCase();
+        if (!s) return null;
+        if (s === "true" || s === "1" || s === "on" || s === "yes") return true;
+        if (s === "false" || s === "0" || s === "off" || s === "no") return false;
+    }
+
+    return null;
+}
+
 // ✅ helper para extraer el path interno del bucket desde una publicUrl de Supabase
 function storagePathFromPublicUrl(publicUrl: string, bucket: string): string | null {
     // típico: https://xxxx.supabase.co/storage/v1/object/public/<bucket>/<path>
@@ -44,7 +62,7 @@ export async function PUT(req: NextRequest) {
         const contentType = req.headers.get("content-type") || "";
         const isMultipart = contentType.includes("multipart/form-data");
 
-        // ✅ MULTIPART: permite imagen
+        // permite imagen
         if (isMultipart) {
             const form = await req.formData();
 
@@ -55,6 +73,8 @@ export async function PUT(req: NextRequest) {
 
             const removeImage = String(form.get("removeImage") ?? "false") === "true";
             const image = form.get("image");
+
+            const isMostWanted = parseBooleanFromUnknown(form.get("isMostWanted"));
 
             if (!name) {
                 return NextResponse.json({ message: "El nombre es obligatorio." }, { status: 400 });
@@ -75,6 +95,11 @@ export async function PUT(req: NextRequest) {
                 url,
                 price: numericPrice,
             };
+
+            // ✅ si viene el flag, lo guardamos
+            if (isMostWanted !== null) {
+                payload.is_most_wanted = isMostWanted;
+            }
 
             // ✅ Si pidió quitar imagen => image_urls = []
             if (removeImage) {
@@ -129,7 +154,7 @@ export async function PUT(req: NextRequest) {
 
         // ✅ JSON: sin imagen (compatibilidad)
         const body = await req.json().catch(() => null);
-        const { name, notes, url, price } = (body as any) ?? {};
+        const { name, notes, url, price, isMostWanted } = (body as any) ?? {};
 
         if (!name || !name.trim()) {
             return NextResponse.json({ message: "El nombre es obligatorio." }, { status: 400 });
@@ -143,12 +168,18 @@ export async function PUT(req: NextRequest) {
             );
         }
 
-        const payload = {
+        const payload: any = {
             name: name.trim(),
             notes: notes?.toString().trim() || null,
             url: url?.toString().trim() || null,
             price: numericPrice,
         };
+
+        // ✅ NUEVO: actualizar is_most_wanted si viene en el body
+        const parsedMostWanted = parseBooleanFromUnknown(isMostWanted);
+        if (parsedMostWanted !== null) {
+            payload.is_most_wanted = parsedMostWanted;
+        }
 
         const { data, error } = await supabaseServer
             .from("items")

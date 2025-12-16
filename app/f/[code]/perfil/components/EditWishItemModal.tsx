@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, ImagePlus, Trash2 } from "lucide-react";
+import { X, ImagePlus, Trash2, Star } from "lucide-react";
 import { WishItem } from "./WishListDetail";
 
 export type EditWishItemPayload = {
@@ -11,13 +11,16 @@ export type EditWishItemPayload = {
     price: number | string;
 
     // ✅ NUEVO: para editar imagen
-    imageFile?: File | null;     // si el usuario sube una nueva
-    removeImage?: boolean;       // si el usuario decide quitar la imagen actual
+    imageFile?: File | null; // si el usuario sube una nueva
+    removeImage?: boolean; // si el usuario decide quitar la imagen actual
+
+    // ✅ NUEVO: Más deseado
+    isMostWanted?: boolean;
 };
 
 interface Props {
     isOpen: boolean;
-    item: WishItem & { notes?: string; priceRaw?: number; imageUrl?: string | null };
+    item: WishItem & { notes?: string; priceRaw?: number; imageUrl?: string | null; isMostWanted?: boolean };
     onClose: () => void;
     onSubmit: (payload: EditWishItemPayload) => Promise<void>;
 }
@@ -37,6 +40,9 @@ export function EditWishItemModal({ isOpen, item, onClose, onSubmit }: Props) {
     const [previewUrl, setPreviewUrl] = useState<string | null>(item.imageUrl ?? null);
     const [removeImage, setRemoveImage] = useState(false);
 
+    // ✅ NUEVO: Más deseado (si no viene, false)
+    const [isMostWanted, setIsMostWanted] = useState(Boolean((item as any).isMostWanted));
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +57,9 @@ export function EditWishItemModal({ isOpen, item, onClose, onSubmit }: Props) {
         setImageFile(null);
         setPreviewUrl(item.imageUrl ?? null);
         setRemoveImage(false);
+
+        // ✅ NUEVO
+        setIsMostWanted(Boolean((item as any).isMostWanted));
 
         setError(null);
         setLoading(false);
@@ -114,6 +123,9 @@ export function EditWishItemModal({ isOpen, item, onClose, onSubmit }: Props) {
                 // ✅ NUEVO
                 imageFile,
                 removeImage,
+
+                // ✅ NUEVO
+                isMostWanted,
             });
 
             onClose();
@@ -123,6 +135,8 @@ export function EditWishItemModal({ isOpen, item, onClose, onSubmit }: Props) {
             setLoading(false);
         }
     }
+
+    console.log(isMostWanted);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -163,6 +177,25 @@ export function EditWishItemModal({ isOpen, item, onClose, onSubmit }: Props) {
                     )}
 
                     <div className="space-y-4">
+                        {/* ✅ NUEVO: checkbox "Más deseado" */}
+                        <label className="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={isMostWanted}
+                                onChange={(e) => setIsMostWanted(e.target.checked)}
+                                className="h-5 w-5 accent-yellow-400"
+                            />
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                    <Star className="w-4 h-4 text-yellow-300" />
+                                    <span className="text-white text-sm font-medium">Más deseado</span>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-1">
+                                    Márcalo si este deseo es prioridad frente a los demás.
+                                </p>
+                            </div>
+                        </label>
+
                         {/* ✅ NUEVO: editor imagen */}
                         <div className="space-y-2">
                             <p className="text-sm text-slate-300">Imagen</p>
@@ -181,12 +214,7 @@ export function EditWishItemModal({ isOpen, item, onClose, onSubmit }: Props) {
                                     <label className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900/60 border border-white/10 px-3 py-3 text-white hover:border-blue-500/60 cursor-pointer">
                                         <ImagePlus className="w-5 h-5" />
                                         <span className="text-sm font-medium">Cambiar imagen</span>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={handlePickImage}
-                                        />
+                                        <input type="file" accept="image/*" className="hidden" onChange={handlePickImage} />
                                     </label>
 
                                     <button

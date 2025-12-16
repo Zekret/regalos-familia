@@ -18,9 +18,9 @@ export type WishItemUI = {
     imageUrl: string;
     price: string;
     url?: string;
-    liked: boolean;
     notes?: string;
     priceRaw?: number;
+    isMostWanted: boolean;
 };
 
 const PLACEHOLDER_IMG =
@@ -72,9 +72,8 @@ export function useWishListData(listId: string) {
                 id: it.id,
                 name: it.name,
                 url: it.url ?? undefined,
-                liked: true,
-                // ✅ jamás guardar ""
                 imageUrl: img.length > 0 ? img : PLACEHOLDER_IMG,
+                isMostWanted: it.isMostWanted,
                 notes: it.notes ?? "",
                 priceRaw: raw,
                 price: formatCLP(raw),
