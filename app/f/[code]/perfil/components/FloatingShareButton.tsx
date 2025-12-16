@@ -7,12 +7,14 @@ interface FloatingShareButtonProps {
     url: string;
     title?: string;
     description?: string;
+    subtitle?: string;
 }
 
 export function FloatingShareButton({
     url,
     title = "Compartir",
     description = "Comparte este enlace",
+    subtitle = "Compartir vínculo"
 }: FloatingShareButtonProps) {
     const [open, setOpen] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -92,7 +94,7 @@ export function FloatingShareButton({
 
                         <p className="text-white font-semibold flex items-center gap-2 mb-2">
                             <LinkIcon className="w-4 h-4" />
-                            Compartir vínculo
+                            {subtitle}
                         </p>
 
                         <p className="break-all text-xs text-gray-100 bg-slate-950
@@ -100,15 +102,27 @@ export function FloatingShareButton({
                             {url}
                         </p>
 
-                        <button
-                            onClick={handleShare}
-                            className="mt-4 w-full bg-white text-slate-900 rounded-xl py-2.5
+                        <div className="mt-4 flex gap-2">
+                            <button
+                                onClick={handleShare}
+                                className="mt-2 w-full bg-white text-slate-900 rounded-xl py-2.5
                          hover:bg-gray-100 transition-colors"
-                        >
-                            {typeof navigator !== "undefined" && (navigator as any).share
-                                ? "Compartir"
-                                : "Copiar enlace"}
-                        </button>
+                            >
+                                {typeof navigator !== "undefined" && (navigator as any).share
+                                    ? "Compartir"
+                                    : "Copiar enlace"}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setOpen(false)}
+                                className="mt-2 px-4 bg-slate-800 text-gray-100 rounded-xl py-2.5 hover:bg-slate-700 transition-colors border border-slate-700"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+
+
 
                         {copied && (
                             <p className="mt-2 text-emerald-400 text-xs flex items-center gap-2">

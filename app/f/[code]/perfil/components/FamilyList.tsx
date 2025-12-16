@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Users, Heart } from "lucide-react";
+import { FloatingShareButton } from "./FloatingShareButton";
 
 interface FamilyMember {
     id: string;
@@ -70,9 +71,10 @@ export function FamilyList({ familyCode, currentMemberId }: FamilyListProps) {
 
     return (
         <div className="p-4 pb-24 md:p-8 md:pb-8">
+            <FloatingShareButton url={`${window.location.origin}/f/KLY921`} subtitle="Compartir URL Familia" />
             <div className="max-w-5xl mx-auto">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8 mt-1">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center">
                             <Users className="w-6 h-6 text-gray-400" />

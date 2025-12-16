@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { UserProfile } from "./UserProfile";
 import { WishListImagesPreview, type WishPreviewItem } from "./WishListImagesPreview";
+import { FloatingShareButton } from "./FloatingShareButton";
 
 interface WishBoard {
   id: string;
@@ -75,42 +76,6 @@ export function WishList({ familyCode, memberId, owner, canCreate = false }: Wis
     typeof window !== "undefined"
       ? buildPublicUserWishlistsUrl(window.location.origin, memberId)
       : "";
-
-  async function handleSharePublicUrl() {
-    if (!publicUrl) return;
-
-    try {
-      // Web Share API (mobile)
-      if (typeof navigator !== "undefined" && (navigator as any).share) {
-        await (navigator as any).share({
-          title: "Lista de deseos",
-          text: `Mira las listas de deseos de ${owner?.name || "mi perfil"}`,
-          url: publicUrl,
-        });
-        return;
-      }
-
-      // Clipboard fallback
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(publicUrl);
-      } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = publicUrl;
-        textarea.style.position = "fixed";
-        textarea.style.left = "-9999px";
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
-      }
-
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      setError("No se pudo compartir/copiar el enlace. Intenta nuevamente.");
-    }
-  }
 
   async function fetchListsWithItems(signal?: AbortSignal) {
     try {
@@ -228,69 +193,9 @@ export function WishList({ familyCode, memberId, owner, canCreate = false }: Wis
 
   return (
     <div className="p-4 pb-24 md:pb-8 md:p-8">
-      {/* ✅ FAB Compartir (top-right, siempre visible) */}
-      <button
-        type="button"
-        onClick={() => setIsShareOpen(true)}
-        className="fixed top-6 right-6 md:top-8 md:right-8 flex items-center gap-3 px-5 py-3
-                   bg-gray-800 text-white rounded-full shadow-lg hover:bg-gray-700
-                   transition-all hover:scale-105 z-50"
-      >
-        <Share2 className="w-5 h-5" />
-        <span className="hidden sm:inline font-medium">Compartir</span>
-      </button>
+      <FloatingShareButton url={publicUrl} subtitle="Compartir listas" />
 
-      {/* ✅ Panel compartir */}
-      {isShareOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-end p-4">
-          <button
-            type="button"
-            aria-label="Cerrar"
-            onClick={() => setIsShareOpen(false)}
-            className="absolute inset-0 bg-black/60"
-          />
-
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative mt-16 w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4"
-          >
-            <p className="text-white font-semibold flex items-center gap-2 mb-2">
-              <LinkIcon className="w-4 h-4" />
-              Compartir vínculo
-            </p>
-
-            <p className="break-all text-xs text-gray-100 bg-slate-950 rounded-lg p-2 border border-slate-700">
-              {publicUrl}
-            </p>
-
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={handleSharePublicUrl}
-                className="flex-1 bg-white text-slate-900 rounded-xl py-2.5 hover:bg-gray-100 transition-colors"
-              >
-                {typeof navigator !== "undefined" && (navigator as any).share
-                  ? "Compartir"
-                  : "Copiar enlace"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsShareOpen(false)}
-                className="px-4 bg-slate-800 text-gray-100 rounded-xl py-2.5 hover:bg-slate-700 transition-colors border border-slate-700"
-              >
-                Cerrar
-              </button>
-            </div>
-
-            {copied && (
-              <p className="mt-2 text-emerald-400 text-xs flex items-center gap-2">
-                <Check className="w-4 h-4" /> Enlace copiado ✅
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+      
 
       <div className="max-w-6xl mx-auto">
         {/* Owner */}
