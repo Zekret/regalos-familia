@@ -1,29 +1,23 @@
 "use client";
 
-import { useMemo } from "react";
 import { ImageWithFallback } from "./ImageWithFallback";
 
 export type WishPreviewItem = {
     id: string;
     imageUrl?: string | null;
-    price?: number | null;
 };
 
-type Mode = "price" | "desired";
-
-interface WishListImagesPreviewProps {
+interface Props {
     items: WishPreviewItem[];
-    mode?: Mode;
-    className?: string;
+    itemsCount: number;
 }
 
-/** mock “más deseado” (determinístico) */
-function mockDesiredScore(id: string) {
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-        hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-    }
-    return hash % 1000;
+function GiftPlaceholder() {
+    return (
+        <div className="w-full h-full flex items-center justify-center bg-slate-100">
+            <span className="text-3xl opacity-40">🎁</span>
+        </div>
+    );
 }
 
 function normalizeSrc(src?: string | null) {
@@ -31,121 +25,66 @@ function normalizeSrc(src?: string | null) {
     return s.length > 0 ? s : null;
 }
 
-function GiftPlaceholder() {
-    return (
-        <div className="w-full h-full flex items-center justify-center bg-slate-100">
-            <span className="opacity-40 text-3xl">🎁</span>
-        </div>
-    );
-}
+export function WishListImagesPreview({ items, itemsCount }: Props) {
+    const img = (i: number) => normalizeSrc(items[i]?.imageUrl);
 
-export function WishListImagesPreview({
-    items,
-    mode = "price",
-    className = "",
-}: WishListImagesPreviewProps) {
-    const sorted = useMemo(() => {
-        const arr = (items ?? []).slice();
-        arr.sort((a, b) => {
-            if (mode === "desired") {
-                return mockDesiredScore(b.id) - mockDesiredScore(a.id);
-            }
-            return (b.price ?? 0) - (a.price ?? 0);
-        });
-        return arr;
-    }, [items, mode]);
+    const hasItems = itemsCount > 0;
 
-    const count = sorted.length;
-
-    // ✅ IMPORTANTE: si no hay items, NO devolvemos null (mostramos placeholder)
-    if (count === 0) {
+    const renderImgOrPlaceholder = (src: string | null) => {
+        if (!src) return <GiftPlaceholder />;
         return (
-            <div
-                className={[
-                    "w-full aspect-[16/9] overflow-hidden rounded-2xl",
-                    "bg-black",
-                    className,
-                ].join(" ")}
-            >
-                <GiftPlaceholder />
+            <ImageWithFallback
+                src={src}
+                alt="Wishlist preview"
+                className="w-full h-full object-cover"
+            />
+        );
+    };
+
+    const renderImages = () => {
+        if (!hasItems) {
+            return <GiftPlaceholder />;
+        }
+
+        if (itemsCount === 1) {
+            return renderImgOrPlaceholder(img(0));
+        }
+
+        if (itemsCount === 2) {
+            return (
+                <div className="h-full w-full flex flex-row">
+                    <div className="h-full w-1/2 border-r-2 border-black">
+                        {renderImgOrPlaceholder(img(0))}
+                    </div>
+                    <div className="h-full w-1/2">
+                        {renderImgOrPlaceholder(img(1))}
+                    </div>
+                </div>
+            );
+        }
+
+        // itemsCount >= 3
+        return (
+            <div className="h-full w-full flex flex-row">
+                <div className="h-full w-3/5 border-r-2 border-black">
+                    {renderImgOrPlaceholder(img(0))}
+                </div>
+
+                <div className="flex flex-col w-2/5 h-full">
+                    <div className="h-1/2 w-full border-b-2 border-black">
+                        {renderImgOrPlaceholder(img(1))}
+                    </div>
+                    <div className="h-1/2 w-full">
+                        {renderImgOrPlaceholder(img(2))}
+                    </div>
+                </div>
             </div>
         );
-    }
-
-    const big = sorted[0];
-    const right1 = sorted[1];
-    const right2 = sorted[2];
+    };
 
     return (
-        <div
-            className={[
-                "w-full aspect-[16/9] overflow-hidden rounded-2xl",
-                "grid grid-cols-[2fr_1fr] gap-1",
-                "bg-black",
-                className,
-            ].join(" ")}
-        >
-            {/* IZQUIERDA — imagen grande */}
-            <div className="relative h-full">
-                <ImageWithFallback
-                    src={normalizeSrc(big.imageUrl) ?? undefined}
-                    alt="Wishlist preview"
-                    className="w-full h-full object-cover"
-                />
-            </div>
-
-            {/* DERECHA */}
-            {count === 1 ? (
-                // ✅ 1 deseo: placeholder completo a la derecha
-                <div className="h-full">
-                    <GiftPlaceholder />
-                </div>
-            ) : count === 2 ? (
-                // ✅ 2 deseos: derecha en 2 filas → (imagen, placeholder) (como el ejemplo)
-                <div className="grid grid-rows-2 gap-1 h-full">
-                    <div className="relative">
-                        {right1 ? (
-                            <ImageWithFallback
-                                src={normalizeSrc(right1.imageUrl) ?? undefined}
-                                alt="Wishlist preview"
-                                className="w-full h-full object-cover"
-                            />
-                        ) : (
-                            <GiftPlaceholder />
-                        )}
-                    </div>
-                    <div className="relative">
-                        <GiftPlaceholder />
-                    </div>
-                </div>
-            ) : (
-                // ✅ 3+ deseos: derecha en 2 filas → (imagen, imagen)
-                <div className="grid grid-rows-2 gap-1 h-full">
-                    <div className="relative">
-                        {right1 ? (
-                            <ImageWithFallback
-                                src={normalizeSrc(right1.imageUrl) ?? undefined}
-                                alt="Wishlist preview"
-                                className="w-full h-full object-cover"
-                            />
-                        ) : (
-                            <GiftPlaceholder />
-                        )}
-                    </div>
-
-                    <div className="relative">
-                        {right2 ? (
-                            <ImageWithFallback
-                                src={normalizeSrc(right2.imageUrl) ?? undefined}
-                                alt="Wishlist preview"
-                                className="w-full h-full object-cover"
-                            />
-                        ) : (
-                            <GiftPlaceholder />
-                        )}
-                    </div>
-                </div>
-            )}
+        <div className="w-full aspect-video overflow-hidden rounded-2xl gap-1 bg-black">
+            {renderImages()}
         </div>
     );
 }

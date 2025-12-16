@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Heart, Plus, X, Share2, Link as LinkIcon, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { ImageWithFallback } from "./ImageWithFallback";
+
 import { UserProfile } from "./UserProfile";
+import { WishListImagesPreview, type WishPreviewItem } from "./WishListImagesPreview";
 
 interface WishBoard {
   id: string;
   title: string;
   itemsCount: number;
-  imageUrl: string;
   liked: boolean;
 }
 
@@ -33,96 +33,16 @@ interface WishListProps {
   onLogin?: () => void;
 }
 
-const FALLBACK_IMAGES = [
-  "https://images.unsplash.com/photo-1532453288672-3a27e9be9efd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-  "https://images.unsplash.com/photo-1590156221187-1710315f710b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-  "https://images.unsplash.com/photo-1739132268718-53d64165d29a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-  "https://images.unsplash.com/photo-1580870069867-74c57ee1bb07?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-  "https://images.unsplash.com/photo-1635796436337-50481b9fa2ad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-  "https://images.unsplash.com/photo-1702374114954-9029a74a8add?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-];
+type ApiItemsResponse = {
+  items: Array<{
+    id: string;
+    imageUrl: string;
+    priceValue?: number;
+  }>;
+};
 
 function buildPublicUserWishlistsUrl(origin: string, memberId: string) {
   return `${origin}/u/${memberId}/wishlists`;
-}
-
-/**
- * ✅ SOLO PREVIEW DE IMÁGENES (0 / 1 / 2 / 3+)
- * - 0: placeholder 🎁
- * - 1: imagen grande + placeholder derecha
- * - 2: imagen grande + derecha (imagen + placeholder)
- * - 3+: imagen grande + derecha (imagen + imagen)
- *
- * OJO: por ahora seguimos usando board.imageUrl como mock de imágenes,
- * pero la estructura ya queda lista para pasar imágenes reales luego.
- */
-function WishListImagesPreviewLocal({
-  title,
-  images,
-}: {
-  title: string;
-  images: string[];
-}) {
-  const count = images.length;
-
-  const Placeholder = () => (
-    <div className="w-full h-full flex items-center justify-center bg-gray-800">
-      <span className="text-3xl opacity-40">🎁</span>
-    </div>
-  );
-
-  return (
-    <div className="relative aspect-[4/3] rounded-xl overflow-hidden mb-2 bg-gray-900 grid grid-cols-[2fr_1fr] gap-1">
-      {/* Izquierda (grande) */}
-      <div className="relative h-full">
-        {count > 0 ? (
-          <ImageWithFallback
-            src={images[0]}
-            alt={title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <Placeholder />
-        )}
-      </div>
-
-      {/* Derecha */}
-      {count <= 1 ? (
-        <Placeholder />
-      ) : count === 2 ? (
-        <div className="grid grid-rows-2 gap-1 h-full">
-          <div className="relative">
-            <ImageWithFallback
-              src={images[1]}
-              alt={title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <Placeholder />
-        </div>
-      ) : (
-        <div className="grid grid-rows-2 gap-1 h-full">
-          <div className="relative">
-            <ImageWithFallback
-              src={images[1]}
-              alt={title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="relative">
-            <ImageWithFallback
-              src={images[2]}
-              alt={title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* gradiente igual al anterior */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-    </div>
-  );
 }
 
 export function WishList({ memberId, owner, canCreate = false }: WishListProps) {
@@ -131,6 +51,9 @@ export function WishList({ memberId, owner, canCreate = false }: WishListProps) 
   const [wishBoards, setWishBoards] = useState<WishBoard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // ✅ Mapa listId -> items (para collage real)
+  const [listItemsMap, setListItemsMap] = useState<Record<string, WishPreviewItem[]>>({});
 
   // Modal crear lista
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -189,29 +112,62 @@ export function WishList({ memberId, owner, canCreate = false }: WishListProps) 
     }
   }
 
-  async function fetchLists() {
+  async function fetchListsWithItems(signal?: AbortSignal) {
     try {
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`/api/members/${memberId}/lists`);
+      // 1) Listas
+      const res = await fetch(`/api/members/${memberId}/lists`, { signal });
       const data = await res.json().catch(() => null);
 
-      if (!res.ok)
+      if (!res.ok) {
         throw new Error(data?.message || "No se pudieron cargar las listas.");
+      }
 
       const lists: ApiList[] = data?.lists ?? [];
 
-      const mapped: WishBoard[] = lists.map((list, index) => ({
+      const mappedBoards: WishBoard[] = lists.map((list) => ({
         id: list.id,
         title: list.title,
         itemsCount: list.itemsCount ?? 0,
-        imageUrl: FALLBACK_IMAGES[index % FALLBACK_IMAGES.length],
         liked: true,
       }));
 
-      setWishBoards(mapped);
+      setWishBoards(mappedBoards);
+
+      // 2) Items por lista (limit=3 para collage)
+      const itemsResults = await Promise.all(
+        lists.map(async (list) => {
+          const listId = list.id;
+          const count = list.itemsCount ?? 0;
+
+          if (count <= 0) {
+            return { listId, items: [] as WishPreviewItem[] };
+          }
+
+          const itemsRes = await fetch(`/api/lists/${listId}/items?limit=3`, { signal });
+          const itemsJson: ApiItemsResponse | null = await itemsRes.json().catch(() => null);
+
+          if (!itemsRes.ok) {
+            return { listId, items: [] as WishPreviewItem[] };
+          }
+
+          const items: WishPreviewItem[] = (itemsJson?.items ?? []).map((it) => ({
+            id: it.id,
+            imageUrl: it.imageUrl,
+            price: Number(it.priceValue ?? 0),
+          }));
+
+          return { listId, items };
+        })
+      );
+
+      const nextMap: Record<string, WishPreviewItem[]> = {};
+      for (const r of itemsResults) nextMap[r.listId] = r.items;
+      setListItemsMap(nextMap);
     } catch (err: any) {
+      if (err?.name === "AbortError") return;
       setError(err.message || "Error al cargar las listas.");
     } finally {
       setLoading(false);
@@ -220,7 +176,9 @@ export function WishList({ memberId, owner, canCreate = false }: WishListProps) 
 
   useEffect(() => {
     if (!memberId) return;
-    fetchLists();
+    const controller = new AbortController();
+    fetchListsWithItems(controller.signal);
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberId]);
 
@@ -243,16 +201,20 @@ export function WishList({ memberId, owner, canCreate = false }: WishListProps) 
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.message || "No se pudo crear la lista.");
 
+      const newId = data.list.id as string;
+
       setWishBoards((prev) => [
         {
-          id: data.list.id,
+          id: newId,
           title: data.list.title,
           itemsCount: 0,
-          imageUrl: FALLBACK_IMAGES[prev.length % FALLBACK_IMAGES.length],
           liked: true,
         },
         ...prev,
       ]);
+
+      // lista nueva sin items -> preview placeholder
+      setListItemsMap((prev) => ({ ...prev, [newId]: [] }));
 
       setIsModalOpen(false);
       setTitle("");
@@ -335,13 +297,15 @@ export function WishList({ memberId, owner, canCreate = false }: WishListProps) 
         <UserProfile name={owner.name} />
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex items-start justify-between gap-3 mb-6 md:mb-8">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center">
               <Heart className="w-6 h-6 text-gray-400" />
             </div>
             <div>
-              <h2 className="text-white">Lista de deseos</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-white">Lista de deseos</h2>
+              </div>
               <p className="text-gray-400 mt-1 text-sm">
                 {loading
                   ? "Cargando..."
@@ -351,17 +315,30 @@ export function WishList({ memberId, owner, canCreate = false }: WishListProps) 
             </div>
           </div>
 
-          {/* Acciones derecha */}
           {canCreate && (
-            <div className="flex gap-2 w-full sm:w-auto">
+            <>
+              {/* MOBILE */}
               <button
+                type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors"
+                className="sm:hidden w-10 h-10 rounded-full bg-blue-900 text-white
+                           flex items-center justify-center shadow-lg hover:opacity-90 transition mt-1"
+                aria-label="Crear lista"
+                title="Crear lista"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+
+              {/* DESKTOP */}
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="hidden sm:flex items-center justify-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors"
               >
                 <Plus className="w-5 h-5" />
                 Crear lista
               </button>
-            </div>
+            </>
           )}
         </div>
 
@@ -377,37 +354,31 @@ export function WishList({ memberId, owner, canCreate = false }: WishListProps) 
 
         {/* Grid */}
         {!loading && !error && wishBoards.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-            {wishBoards.map((board) => {
-              // ✅ Por ahora, usamos el fallback como “mock” de imágenes (hasta integrar items reales)
-              const previewImages = [board.imageUrl, board.imageUrl, board.imageUrl].slice(
-                0,
-                Math.min(board.itemsCount, 3)
-              );
-
-              return (
-                <div
-                  key={board.id}
-                  className="group cursor-pointer"
-                  onClick={() => router.push(`/wishlists/${board.id}`)}
-                >
-                  {/* ✅ SOLO CAMBIO: preview estilo wishlist */}
-                  <WishListImagesPreviewLocal title={board.title} images={previewImages} />
-
-                  <h3 className="text-white mb-1 leading-tight line-clamp-2">
-                    {board.title}
-                  </h3>
-
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Heart
-                      className={`w-3 h-3 ${board.liked ? "fill-pink-500 text-pink-500" : ""
-                        }`}
-                    />
-                    <span className="text-sm">{board.itemsCount} Deseos</span>
-                  </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+            {wishBoards.map((board) => (
+              <div
+                key={board.id}
+                className="group cursor-pointer"
+                onClick={() => router.push(`/wishlists/${board.id}`)}
+              >
+                {/* ✅ Preview con imágenes REALES desde /api/lists/{id}/items?limit=3 */}
+                <div className="mb-2">
+                  <WishListImagesPreview
+                    items={listItemsMap[board.id] ?? []}
+                    itemsCount={board.itemsCount}
+                  />
                 </div>
-              );
-            })}
+
+                <h3 className="text-white mb-1 leading-tight line-clamp-2">
+                  {board.title}
+                </h3>
+
+                <div className="flex items-center gap-2 text-gray-400">
+                  <Heart className={`w-3 h-3 ${board.liked ? "fill-pink-500 text-pink-500" : ""}`} />
+                  <span className="text-sm">{board.itemsCount} Deseos</span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
