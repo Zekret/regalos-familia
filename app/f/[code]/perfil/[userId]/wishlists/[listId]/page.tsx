@@ -65,8 +65,8 @@ export default function InternalWishListDetailPage() {
     return pathname.includes("/wishlists") ? "wishes" : "family";
   }, [pathname]);
 
-  const familyHref = useMemo(() => `${pathname}?section=family`, [pathname]);
-  const wishesHref = useMemo(() => `${pathname}?section=wishes`, [pathname]);
+  const familyHref = `/f/${code}/perfil/${userId}?section=family`;
+  const wishesHref = `/f/${code}/perfil/${userId}?section=wishes`;
 
   // ✅ Default: si no viene ?section= -> family
   useEffect(() => {

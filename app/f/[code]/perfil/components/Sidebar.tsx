@@ -5,12 +5,12 @@ import { Users, Heart, LogOut } from "lucide-react";
 
 interface SidebarProps {
     activeSection: "family" | "wishes";
-    familyHref: string;
-    wishesHref: string;
+    familyHref?: string;
+    wishesHref?: string;
+    memberId?: string;
     memberName?: string;
     familyCode?: string;
     onLogout?: () => void;
-    onSectionChange?: (section: "family" | "wishes") => void;
 }
 
 function safeHref(href?: string) {
@@ -29,12 +29,21 @@ export function Sidebar({
     activeSection,
     familyHref,
     wishesHref,
+    memberId,
     memberName,
     familyCode,
     onLogout,
 }: SidebarProps) {
-    const family = safeHref(familyHref);
-    const wishes = safeHref(wishesHref);
+    const computedFamilyHref =
+        familyHref?.trim() ||
+        (familyCode && memberId ? `/f/${familyCode}/perfil/${memberId}?section=family` : "");
+
+    const computedWishesHref =
+        wishesHref?.trim() ||
+        (familyCode && memberId ? `/f/${familyCode}/perfil/${memberId}?section=wishes` : "");
+
+    const family = safeHref(computedFamilyHref);
+    const wishes = safeHref(computedWishesHref);
 
     return (
         <aside className="hidden md:flex w-64 bg-black border-r border-gray-800 flex-col">
@@ -54,8 +63,8 @@ export function Sidebar({
                     <li>
                         <Link
                             href={wishes}
-                            onClick={preventIfInvalid(wishesHref)}
-                            aria-disabled={!wishesHref?.trim()}
+                            onClick={preventIfInvalid(computedWishesHref)}
+                            aria-disabled={!computedWishesHref?.trim()}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === "wishes"
                                 ? "bg-gray-800 text-white"
                                 : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"
@@ -69,8 +78,8 @@ export function Sidebar({
                     <li>
                         <Link
                             href={family}
-                            onClick={preventIfInvalid(familyHref)}
-                            aria-disabled={!familyHref?.trim()}
+                            onClick={preventIfInvalid(computedFamilyHref)}
+                            aria-disabled={!computedFamilyHref?.trim()}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === "family"
                                 ? "bg-gray-800 text-white"
                                 : "text-gray-400 hover:bg-gray-900 hover:text-gray-200"

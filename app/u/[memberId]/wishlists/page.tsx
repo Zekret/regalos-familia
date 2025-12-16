@@ -100,7 +100,6 @@ export default function PublicWishListsPage() {
                 memberId={memberId}
                 owner={owner}
                 canCreate={false}
-                onLogin={() => router.push("/")}
             />
 
             {showFloating ? (

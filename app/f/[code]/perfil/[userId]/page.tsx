@@ -32,8 +32,8 @@ export default function PerfilPage() {
     }, [searchParams]);
 
     // ✅ URLs para Sidebar/MobileNav
-    const familyHref = useMemo(() => `${pathname}?section=family`, [pathname]);
-    const wishesHref = useMemo(() => `${pathname}?section=wishes`, [pathname]);
+    const familyHref = `/f/${code}/perfil/${userId}?section=family`;
+    const wishesHref = `/f/${code}/perfil/${userId}?section=wishes`;
 
     // ✅ Default: si no viene ?section= -> family
     useEffect(() => {
@@ -183,6 +183,7 @@ export default function PerfilPage() {
                             memberId={session.member.id}
                             owner={{ name: session.member.name }}
                             canCreate
+                            familyCode={session.familyCode}
                         />
                     )}
                 </div>

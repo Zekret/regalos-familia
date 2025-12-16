@@ -23,6 +23,7 @@ interface ApiList {
 }
 
 interface WishListProps {
+  familyCode?: string;
   memberId: string;
   owner: {
     name: string;
@@ -30,7 +31,6 @@ interface WishListProps {
     avatar?: string;
   };
   canCreate?: boolean;
-  onLogin?: () => void;
 }
 
 type ApiItemsResponse = {
@@ -45,7 +45,7 @@ function buildPublicUserWishlistsUrl(origin: string, memberId: string) {
   return `${origin}/u/${memberId}/wishlists`;
 }
 
-export function WishList({ memberId, owner, canCreate = false }: WishListProps) {
+export function WishList({ familyCode, memberId, owner, canCreate = false }: WishListProps) {
   const router = useRouter();
 
   const [wishBoards, setWishBoards] = useState<WishBoard[]>([]);
@@ -359,7 +359,17 @@ export function WishList({ memberId, owner, canCreate = false }: WishListProps) 
               <div
                 key={board.id}
                 className="group cursor-pointer"
-                onClick={() => router.push(`/wishlists/${board.id}`)}
+                onClick={() => {
+                  if (canCreate && familyCode) {
+                    // ✅ Usuario logeado
+                    router.push(
+                      `/f/${familyCode}/perfil/${memberId}/wishlists/${board.id}?section=wishes`
+                    );
+                  } else {
+                    // 👀 Usuario público
+                    router.push(`/wishlists/${board.id}`);
+                  }
+                }}
               >
                 {/* ✅ Preview con imágenes REALES desde /api/lists/{id}/items?limit=3 */}
                 <div className="mb-2">
