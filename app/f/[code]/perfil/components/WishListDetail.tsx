@@ -253,14 +253,20 @@ export function WishListDetail({
                                             <ExternalLink size={14} className=" text-white" />
                                         </div>
                                     ) : null}
-                                    {item.isMostWanted ? <div className="absolute top-2 left-4 w-7 h-7 rounded-full bg-black/70 backdrop-blur-sm flex items-center justify-center">
-                                        <Star
-                                            size={16}
-                                            fill="#34d399"        // emerald-400
-                                            stroke="#022c22"     // emerald-950
-                                            strokeWidth={1.5}
-                                        />
-                                    </div> : null}
+                                    {item.isMostWanted && (
+                                        <div className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/70 backdrop-blur-sm">
+                                            <Star
+                                                size={14}
+                                                fill="#34d399"
+                                                stroke="#022c22"
+                                                strokeWidth={1.5}
+                                            />
+                                            <span className="text-[10px] font-medium text-gray-200 leading-none">
+                                                Más deseado
+                                            </span>
+                                        </div>
+                                    )}
+
 
                                 </div>
 
