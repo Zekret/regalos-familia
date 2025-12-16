@@ -31,7 +31,10 @@ export function WishItemModal({
     onDelete,
 }: Props) {
     const [menuOpen, setMenuOpen] = useState(false);
-    const menuRef = useRef<HTMLDivElement | null>(null);
+
+    // ✅ refs separados (mobile vs desktop)
+    const menuRefMobile = useRef<HTMLDivElement | null>(null);
+    const menuRefDesktop = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -44,8 +47,14 @@ export function WishItemModal({
         if (!menuOpen) return;
 
         const onDown = (e: MouseEvent) => {
-            if (!menuRef.current) return;
-            if (!menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+            const target = e.target as Node;
+
+            const insideMobile =
+                menuRefMobile.current && menuRefMobile.current.contains(target);
+            const insideDesktop =
+                menuRefDesktop.current && menuRefDesktop.current.contains(target);
+
+            if (!insideMobile && !insideDesktop) setMenuOpen(false);
         };
 
         const onKey = (e: KeyboardEvent) => {
@@ -60,6 +69,11 @@ export function WishItemModal({
         };
     }, [menuOpen]);
 
+    useEffect(() => {
+        // si se cierra el modal, cierra también el menú
+        if (!isOpen) setMenuOpen(false);
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     const handleEdit = () => {
@@ -71,8 +85,6 @@ export function WishItemModal({
         setMenuOpen(false);
         onDelete?.(item);
     };
-
-    console.log(item);
 
     return (
         <div
@@ -99,10 +111,10 @@ export function WishItemModal({
                             />
                         </div>
 
-                        {/* ✅ Acciones MOBILE (top-right sobre imagen): menú + cerrar */}
+                        {/* ✅ Acciones MOBILE */}
                         <div className="lg:hidden absolute top-3 right-3 flex items-center gap-2">
                             {canManage ? (
-                                <div className="relative" ref={menuRef}>
+                                <div className="relative" ref={menuRefMobile}>
                                     <button
                                         type="button"
                                         onClick={() => setMenuOpen((v) => !v)}
@@ -153,10 +165,10 @@ export function WishItemModal({
 
                     {/* RIGHT (contenido) */}
                     <div className="relative p-6 lg:p-8">
-                        {/* ✅ Acciones DESKTOP (top-right del panel derecho): menú + cerrar */}
+                        {/* ✅ Acciones DESKTOP */}
                         <div className="hidden lg:flex absolute top-4 right-4 items-center gap-2">
                             {canManage ? (
-                                <div className="relative" ref={menuRef}>
+                                <div className="relative" ref={menuRefDesktop}>
                                     <button
                                         type="button"
                                         onClick={() => setMenuOpen((v) => !v)}
@@ -204,23 +216,23 @@ export function WishItemModal({
                             </button>
                         </div>
 
-                        {/* Badge */}
-                        {item.isMostWanted ? <div className="flex items-center gap-2 text-emerald-400 mt-1">
-                            <Sparkles className="w-4 h-4" />
-                            <span className="text-sm font-medium">Más deseado</span>
-                        </div> : null}
+                        {item.isMostWanted ? (
+                            <div className="flex items-center gap-2 text-emerald-400 mt-1">
+                                <Sparkles className="w-4 h-4" />
+                                <span className="text-sm font-medium">Más deseado</span>
+                            </div>
+                        ) : null}
 
-                        {/* ✅ Título más pequeño en mobile */}
                         <h3 className="mt-3 text-white font-semibold leading-tight line-clamp-2 text-xl sm:text-3xl">
                             {item.name}
                         </h3>
 
-                        {/* Precio */}
                         <div className="mt-3">
-                            <p className="text-white text-lg sm:text-3xl font-semibold">{item.price}</p>
+                            <p className="text-white text-lg sm:text-3xl font-semibold">
+                                {item.price}
+                            </p>
                         </div>
 
-                        {/* ✅ Descripción con menos peso visual */}
                         {item.notes ? (
                             <div className="mt-4">
                                 <p className="inline-block px-4 py-3 rounded-xl bg-white/10 text-slate-200 text-sm font-normal whitespace-pre-line line-clamp-3">
@@ -229,7 +241,6 @@ export function WishItemModal({
                             </div>
                         ) : null}
 
-                        {/* Botón único */}
                         <div className="mt-6">
                             {item.url ? (
                                 <a
