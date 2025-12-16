@@ -25,6 +25,15 @@ function safeString(v: unknown): string | null {
     return s.length ? s : null;
 }
 
+// ✅ helper para extraer el path interno del bucket desde una publicUrl de Supabase
+function storagePathFromPublicUrl(publicUrl: string, bucket: string): string | null {
+    // típico: https://xxxx.supabase.co/storage/v1/object/public/<bucket>/<path>
+    const marker = `/storage/v1/object/public/${bucket}/`;
+    const idx = publicUrl.indexOf(marker);
+    if (idx === -1) return null;
+    return publicUrl.slice(idx + marker.length);
+}
+
 export async function PUT(req: NextRequest) {
     try {
         const itemId = getItemIdFromUrl(req);
@@ -82,10 +91,10 @@ export async function PUT(req: NextRequest) {
                 const filePath = `items/${itemId}/${crypto.randomUUID()}.${ext}`;
 
                 const arrayBuffer = await image.arrayBuffer();
-                const bytes = new Uint8Array(arrayBuffer); 
+                const bytes = new Uint8Array(arrayBuffer);
 
                 const { error: uploadError } = await supabaseServer.storage
-                    .from("item-images") 
+                    .from("item-images")
                     .upload(filePath, bytes, {
                         contentType: image.type,
                         upsert: true,
@@ -96,10 +105,7 @@ export async function PUT(req: NextRequest) {
                     return NextResponse.json({ message: "No se pudo subir la imagen." }, { status: 500 });
                 }
 
-                const { data: publicData } = supabaseServer.storage
-                    .from("item-images")
-                    .getPublicUrl(filePath);
-
+                const { data: publicData } = supabaseServer.storage.from("item-images").getPublicUrl(filePath);
                 const publicUrl = publicData?.publicUrl ?? null;
 
                 // ✅ guarda como array (reemplaza)
@@ -160,5 +166,60 @@ export async function PUT(req: NextRequest) {
     } catch (err) {
         console.error("[ITEM PUT] error inesperado:", err);
         return NextResponse.json({ message: "Error interno al actualizar el deseo." }, { status: 500 });
+    }
+}
+
+// ✅ DELETE: eliminar item (y opcionalmente imágenes del bucket)
+export async function DELETE(req: NextRequest) {
+    try {
+        const itemId = getItemIdFromUrl(req);
+        if (!itemId) {
+            return NextResponse.json({ message: "itemId inválido." }, { status: 400 });
+        }
+
+        // 1) Traemos image_urls para cleanup (si existe)
+        const { data: existing, error: getErr } = await supabaseServer
+            .from("items")
+            .select("id, image_urls")
+            .eq("id", itemId)
+            .maybeSingle();
+
+        if (getErr) {
+            console.error("[ITEM DELETE] fetch error:", getErr);
+            return NextResponse.json({ message: "No se pudo obtener el deseo." }, { status: 500 });
+        }
+
+        if (!existing) {
+            return NextResponse.json({ message: "Item no encontrado." }, { status: 404 });
+        }
+
+        // 2) (Opcional) borrar archivos del storage
+        const bucket = "item-images";
+        const urls: string[] = Array.isArray((existing as any).image_urls) ? (existing as any).image_urls : [];
+
+        const pathsToRemove = urls
+            .map((u) => (typeof u === "string" ? storagePathFromPublicUrl(u, bucket) : null))
+            .filter((p): p is string => Boolean(p));
+
+        if (pathsToRemove.length > 0) {
+            const { error: rmErr } = await supabaseServer.storage.from(bucket).remove(pathsToRemove);
+            if (rmErr) {
+                // No abortamos el delete del item si falla el cleanup
+                console.warn("[ITEM DELETE] storage remove warning:", rmErr);
+            }
+        }
+
+        // 3) borrar el registro del item
+        const { error: delErr } = await supabaseServer.from("items").delete().eq("id", itemId);
+
+        if (delErr) {
+            console.error("[ITEM DELETE] Supabase delete error:", delErr);
+            return NextResponse.json({ message: "No se pudo eliminar el deseo." }, { status: 500 });
+        }
+
+        return NextResponse.json({ ok: true }, { status: 200 });
+    } catch (err) {
+        console.error("[ITEM DELETE] error inesperado:", err);
+        return NextResponse.json({ message: "Error interno al eliminar el deseo." }, { status: 500 });
     }
 }

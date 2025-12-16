@@ -194,7 +194,7 @@ export default function InternalWishListDetailPage() {
   }
 
   async function deleteItem(itemId: string) {
-    const res = await fetch(`/api/lists/${listId}/items/${itemId}`, {
+    const res = await fetch(`/api/items/${itemId}`, {
       method: "DELETE",
     });
 
